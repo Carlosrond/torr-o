@@ -1,0 +1,8 @@
+.superpowers/
+node_modules
+dist
+dist-tsconfig
+.env
+.env.local
+*.tsbuildinfo
+.DS_Store
