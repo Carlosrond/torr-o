@@ -1114,6 +1114,19 @@ describe('sinais', () => {
     expect(sinais(pedidos, prever(pedidos, null, '2026-07-26'), '2026-07-26')).toEqual(['novo'])
   })
 
+  it('cliente com cadencia declarada e atrasado acende na fila, nao fica so como novo', () => {
+    const pedidos = [{ data: '2026-06-01', totalKg: 15 }]
+    const hoje = '2026-07-31'
+    const encontrados = sinais(pedidos, prever(pedidos, 15, hoje), hoje)
+    expect(encontrados).toContain('novo')
+    expect(encontrados).toContain('na_hora')
+    expect(encontrados).toContain('em_risco')
+  })
+
+  it('sem nenhum pedido devolve so novo', () => {
+    expect(sinais([], prever([], 15, '2026-07-31'), '2026-07-31')).toEqual(['novo'])
+  })
+
   it('cliente em dia fica ok', () => {
     const hoje = '2026-07-26'
     expect(sinais(REGULAR, prever(REGULAR, null, hoje), hoje)).toEqual(['ok'])
@@ -1182,6 +1195,8 @@ const PEDIDOS_PARA_QUANTIDADE = 3
 const DIAS_DE_ANTECEDENCIA = 3
 const FATOR_RISCO = 1.5
 const PISO_QUEDA = 0.7
+/** Janela de comparação do sinal `caindo` — separada da janela de cadência de propósito. */
+const PEDIDOS_PARA_QUEDA = 5
 
 function ordenados(pedidos: PedidoHistorico[]): PedidoHistorico[] {
   return [...pedidos].sort((a, b) => a.data.localeCompare(b.data))
@@ -1260,9 +1275,13 @@ export function sinais(
   hoje: string,
 ): Sinal[] {
   const lista = ordenados(pedidos)
-  if (previsao.confianca === 'sem_historico') return ['novo']
-
   const encontrados: Sinal[] = []
+
+  // `novo` é rótulo de confiança, não curto-circuito: um cliente com cadência
+  // declarada tem previsão válida e precisa acender na fila mesmo sem histórico.
+  if (previsao.confianca === 'sem_historico') encontrados.push('novo')
+  if (lista.length === 0) return encontrados
+
   const ultimo = lista[lista.length - 1]
 
   if (previsao.atrasoDias !== null && previsao.atrasoDias >= -DIAS_DE_ANTECEDENCIA) {
@@ -1277,7 +1296,7 @@ export function sinais(
   }
 
   // compara com a média dos ANTERIORES: incluir o último na média mascararia a queda
-  const anteriores = lista.slice(0, -1).slice(-PEDIDOS_PARA_CADENCIA)
+  const anteriores = lista.slice(0, -1).slice(-PEDIDOS_PARA_QUEDA)
   if (anteriores.length > 0 && ultimo.totalKg < mediaKg(anteriores) * PISO_QUEDA) {
     encontrados.push('caindo')
   }
@@ -4462,13 +4481,17 @@ const ROTULO_CONFIANCA: Record<LinhaCliente['previsao']['confianca'], string> = 
   alta: 'confiança alta',
 }
 
+const SINAIS_DE_ACAO: Sinal[] = ['na_hora', 'em_risco', 'caindo']
+
 const dataCurta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 
 export function BlocoInsight({ linhas }: { linhas: LinhaCliente[] }) {
-  const prioritarias = linhas.filter(
-    (linha) => !linha.sinais.includes('ok') && !linha.sinais.includes('novo'),
-  )
-  const novos = linhas.filter((linha) => linha.sinais.includes('novo'))
+  // um cliente com cadência declarada aparece como `novo` E `na_hora` ao mesmo tempo:
+  // o que decide a fila é ter sinal de ação, não a ausência de `novo`
+  const temAcao = (linha: LinhaCliente) =>
+    linha.sinais.some((sinal) => SINAIS_DE_ACAO.includes(sinal))
+  const prioritarias = linhas.filter(temAcao)
+  const novos = linhas.filter((linha) => linha.sinais.includes('novo') && !temAcao(linha))
 
   return (
     <section className="space-y-3">
