@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/componentes/AppShell'
 import { RotaProtegida } from '@/componentes/RotaProtegida'
 import { ProvedorAuth } from '@/hooks/useAuth'
+import Clientes from '@/paginas/Clientes'
 import Login from '@/paginas/Login'
 
 const queryClient = new QueryClient({
@@ -28,7 +29,7 @@ export default function App() {
               }
             >
               <Route path="/" element={<EmBreve nome="Novo pedido" />} />
-              <Route path="/clientes" element={<EmBreve nome="Clientes" />} />
+              <Route path="/clientes" element={<Clientes />} />
               <Route path="/painel" element={<EmBreve nome="Painel" />} />
               <Route
                 path="/precos"
