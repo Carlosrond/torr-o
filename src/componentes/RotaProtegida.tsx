@@ -13,6 +13,8 @@ export function RotaProtegida({
   const { sessao, papel, carregando } = useAuth()
   if (carregando) return <Carregando />
   if (!sessao) return <Navigate to="/entrar" replace />
-  if (soAdmin && papel !== null && papel !== 'admin') return <Navigate to="/" replace />
+  // papel ainda carregando (sessao ja existe, mas o profile nao voltou) -- nao decide o redirect ainda
+  if (soAdmin && papel === null) return <Carregando />
+  if (soAdmin && papel !== 'admin') return <Navigate to="/" replace />
   return <>{children}</>
 }

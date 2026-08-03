@@ -41,7 +41,14 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
       .select('papel')
       .eq('id', sessao.user.id)
       .single()
-      .then(({ data }) => setPapel((data?.papel as Papel) ?? 'vendedor'))
+      .then(({ data, error }) => {
+        // falha de rede nao pode rebaixar admin em silencio -- fica null (RotaProtegida trata como carregando)
+        if (error) {
+          setPapel(null)
+          return
+        }
+        setPapel((data?.papel as Papel) ?? 'vendedor')
+      })
   }, [sessao])
 
   const valor: Auth = {

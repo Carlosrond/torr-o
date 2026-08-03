@@ -1,4 +1,5 @@
 import { Vazio } from './Estado'
+import { dataCurta } from '@/lib/formato'
 import type { LinhaCliente } from '@/lib/insights'
 import type { Sinal } from '@/lib/recompra'
 
@@ -18,8 +19,6 @@ const ROTULO_CONFIANCA: Record<LinhaCliente['previsao']['confianca'], string> = 
 }
 
 const SINAIS_DE_ACAO: Sinal[] = ['na_hora', 'em_risco', 'caindo']
-
-const dataCurta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 
 export function BlocoInsight({ linhas }: { linhas: LinhaCliente[] }) {
   // um cliente com cadência declarada aparece como `novo` E `na_hora` ao mesmo tempo:

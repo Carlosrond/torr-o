@@ -5,11 +5,12 @@ const ABAS = [
   { para: '/', rotulo: 'Pedido' },
   { para: '/clientes', rotulo: 'Clientes' },
   { para: '/painel', rotulo: 'Painel' },
-  { para: '/precos', rotulo: 'Preços' },
+  { para: '/precos', rotulo: 'Preços', soAdmin: true },
 ]
 
 export function AppShell() {
-  const { sair } = useAuth()
+  const { sair, papel } = useAuth()
+  const abas = ABAS.filter((aba) => !aba.soAdmin || papel === 'admin')
   return (
     <div className="min-h-screen bg-stone-50 pb-16 text-stone-900">
       <header className="flex items-center justify-between border-b border-stone-200 bg-white px-4 py-3">
@@ -23,8 +24,11 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 grid grid-cols-4 border-t border-stone-200 bg-white">
-        {ABAS.map((aba) => (
+      <nav
+        className="fixed bottom-0 left-0 right-0 grid border-t border-stone-200 bg-white"
+        style={{ gridTemplateColumns: `repeat(${abas.length}, minmax(0, 1fr))` }}
+      >
+        {abas.map((aba) => (
           <NavLink
             key={aba.para}
             to={aba.para}

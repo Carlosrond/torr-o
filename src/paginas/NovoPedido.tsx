@@ -4,14 +4,12 @@ import { useClientes } from '@/hooks/useClientes'
 import { useCriarPedido } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
+import { dataLonga, kgTexto, reais } from '@/lib/formato'
 import { arredondar2 } from '@/lib/numero'
-import { faixaVigente, kgTotal, precificar, totalPedido } from '@/lib/preco'
+import { kgTotal, precificar, totalPedido } from '@/lib/preco'
 import { vencimentos } from '@/lib/prazo'
 import { oportunidadeFaixa, type OportunidadeFaixa } from '@/lib/recompra'
 import { ROTULO_CONDICAO, SKUS, type CondicaoPagamento, type ItemPrecificado, type Sku } from '@/lib/tipos'
-
-const reais = (valor: number) =>
-  valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export default function NovoPedido() {
   const { data: clientes, isLoading: carregandoClientes, error: erroClientes } = useClientes()
@@ -147,7 +145,7 @@ export default function NovoPedido() {
 
       <div className="rounded-xl bg-white p-4 shadow">
         <p className="text-sm text-stone-500">Volume do pedido</p>
-        <p className="text-2xl font-bold">{kg.toLocaleString('pt-BR')} kg</p>
+        <p className="text-2xl font-bold">{kgTexto(kg)}</p>
 
         {calculo && 'erro' in calculo && <p className="mt-2 text-sm text-red-700">{calculo.erro}</p>}
 
@@ -175,7 +173,7 @@ export default function NovoPedido() {
               <p className="text-sm text-stone-500">
                 Previsto entrar:{' '}
                 {vencimentos(data, condicaoEfetiva, calculo.total.totalValor)
-                  .map((v) => `${reais(v.valor)} em ${v.data.split('-').reverse().join('/')}`)
+                  .map((v) => `${reais(v.valor)} em ${dataLonga(v.data)}`)
                   .join(' · ')}
               </p>
             )}
@@ -246,12 +244,6 @@ export default function NovoPedido() {
       >
         {criar.isPending ? 'Salvando…' : 'Salvar pedido'}
       </button>
-
-      {faixas && faixas.length > 0 && kg > 0 && !faixaVigente(faixas, '250g', kg, data) && (
-        <p className="text-sm text-red-700">
-          Não há faixa de preço cadastrada para 250g nessa data. Ajuste a tabela de preços.
-        </p>
-      )}
     </form>
   )
 }

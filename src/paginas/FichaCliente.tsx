@@ -8,20 +8,18 @@ import { useCancelarPedido, usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
 import { diasParado, previsaoReposicao, saldoKg, saldoPorSku } from '@/lib/consignado'
+import { dataLonga, reais } from '@/lib/formato'
 import { porCliente } from '@/lib/insights'
+import { faixaVigente } from '@/lib/preco'
 import { oportunidadeFaixa } from '@/lib/recompra'
 import { prazoMedioPonderado } from '@/lib/prazo'
 import { KG_POR_SKU, ROTULO_CANAL, ROTULO_CONDICAO, SKUS, type Sku } from '@/lib/tipos'
 
-const reais = (valor: number) =>
-  valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const dataCurta = (iso: string) => iso.split('-').reverse().join('/')
-
 export default function FichaCliente() {
   const { id = '' } = useParams()
-  const { data: clientes, isLoading: carregandoClientes, error } = useClientes()
-  const { data: pedidos, isLoading: carregandoPedidos } = usePedidos()
-  const { data: faixas } = usePrecos()
+  const { data: clientes, isLoading: carregandoClientes, error: erroClientes } = useClientes()
+  const { data: pedidos, isLoading: carregandoPedidos, error: erroPedidos } = usePedidos()
+  const { data: faixas, error: erroPrecos } = usePrecos()
   const { data: movimentos } = useConsignado(id || null)
   const apurar = useApurarConsignado()
   const cancelar = useCancelarPedido()
@@ -43,7 +41,8 @@ export default function FichaCliente() {
   )
 
   if (carregandoClientes || carregandoPedidos) return <Carregando />
-  if (error) return <Erro mensagem={error.message} />
+  if (erroClientes) return <Erro mensagem={erroClientes.message} />
+  if (erroPedidos) return <Erro mensagem={erroPedidos.message} />
   if (!cliente) return <Erro mensagem="Cliente não encontrado." />
 
   const linha = porCliente(doCliente, { [id]: cliente.cadenciaDeclaradaDias }, hoje)[0] ?? null
@@ -75,6 +74,19 @@ export default function FichaCliente() {
   const saldo = saldoPorSku(movs)
   const temConsignado = SKUS.some((sku) => saldo[sku] !== 0)
   const skusComSaldo = SKUS.filter((sku) => saldo[sku] > 0)
+  const diasParadoConsignado = diasParado(movs, hoje)
+  const reposicaoConsignado = previsaoReposicao(movs, hoje)
+
+  // valor do saldo consignado em R$: preco de tabela do SKU hoje (faixa de 1 pacote), sem desconto de
+  // volume -- se algum SKU do saldo nao tiver faixa aplicavel na tabela, nao inventa valor (so kg)
+  const faixasDosSaldos = skusComSaldo.map((sku) => ({
+    sku,
+    faixa: faixas ? faixaVigente(faixas, sku, KG_POR_SKU[sku], hoje) : null,
+  }))
+  const valorSaldoDisponivel = faixasDosSaldos.length > 0 && faixasDosSaldos.every((f) => f.faixa !== null)
+  const valorSaldoConsignado = valorSaldoDisponivel
+    ? faixasDosSaldos.reduce((soma, f) => soma + f.faixa!.precoUnit * saldo[f.sku], 0)
+    : null
 
   async function registrarApuracao(evento: React.FormEvent) {
     evento.preventDefault()
@@ -131,7 +143,7 @@ export default function FichaCliente() {
           titulo="Próxima compra"
           valor={
             linha?.previsao.proximaCompraPrevista
-              ? dataCurta(linha.previsao.proximaCompraPrevista)
+              ? dataLonga(linha.previsao.proximaCompraPrevista)
               : '—'
           }
           detalhe={
@@ -156,6 +168,13 @@ export default function FichaCliente() {
         />
       </div>
 
+      {erroPrecos && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Não foi possível carregar a tabela de preços — o argumento de venda e o valor do saldo
+          consignado ficaram indisponíveis.
+        </p>
+      )}
+
       {oportunidade && (
         <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
           Argumento de venda: com {oportunidade.kgFaltando.toLocaleString('pt-BR')} kg a mais, o
@@ -168,15 +187,19 @@ export default function FichaCliente() {
         <section>
           <h2 className="mb-2 font-semibold">Consignado</h2>
           <div className="grid grid-cols-2 gap-3">
-            <Cartao titulo="Saldo no cliente" valor={`${saldoKg(movs).toLocaleString('pt-BR')} kg`} />
+            <Cartao
+              titulo="Saldo no cliente"
+              valor={`${saldoKg(movs).toLocaleString('pt-BR')} kg`}
+              detalhe={valorSaldoConsignado !== null ? reais(valorSaldoConsignado) : undefined}
+            />
             <Cartao
               titulo="Parado há"
-              valor={diasParado(movs, hoje) === null ? '—' : `${diasParado(movs, hoje)} dias`}
-              alerta={(diasParado(movs, hoje) ?? 0) > 30}
+              valor={diasParadoConsignado === null ? '—' : `${diasParadoConsignado} dias`}
+              alerta={(diasParadoConsignado ?? 0) > 30}
             />
             <Cartao
               titulo="Acaba em"
-              valor={previsaoReposicao(movs, hoje) ? dataCurta(previsaoReposicao(movs, hoje)!) : '—'}
+              valor={reposicaoConsignado ? dataLonga(reposicaoConsignado) : '—'}
               detalhe="no ritmo apurado"
             />
           </div>
@@ -245,7 +268,7 @@ export default function FichaCliente() {
               .map((pedido) => (
                 <li key={pedido.id} className="flex items-center justify-between gap-2 p-3 text-sm">
                   <span>
-                    {dataCurta(pedido.data)} · {ROTULO_CONDICAO[pedido.condicao]}
+                    {dataLonga(pedido.data)} · {ROTULO_CONDICAO[pedido.condicao]}
                   </span>
                   <span className="flex items-center gap-2">
                     {pedido.totalKg.toLocaleString('pt-BR')} kg · {reais(pedido.totalValor)}

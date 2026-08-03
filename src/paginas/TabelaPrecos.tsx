@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { useSalvarFaixas, usePrecos, type NovaFaixa } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
+import { dataLonga, reais } from '@/lib/formato'
 import { SKUS, type FaixaPreco, type Sku } from '@/lib/tipos'
 
 interface LinhaForm {
@@ -10,9 +11,6 @@ interface LinhaForm {
   kgMax: string
   precoUnit: string
 }
-
-const reais = (valor: number) =>
-  valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 /** Faixas em vigor hoje: para cada (sku, kgMin), a versão mais recente já vigente. */
 function vigentesHoje(faixas: FaixaPreco[], hoje: string): FaixaPreco[] {
@@ -155,7 +153,7 @@ export default function TabelaPrecos() {
                     {faixa.kgMin} – {faixa.kgMax === null ? 'sem teto' : faixa.kgMax}
                   </td>
                   <td className="p-2">{reais(faixa.precoUnit)}</td>
-                  <td className="p-2">{faixa.vigenteDesde.split('-').reverse().join('/')}</td>
+                  <td className="p-2">{dataLonga(faixa.vigenteDesde)}</td>
                 </tr>
               ))}
             </tbody>

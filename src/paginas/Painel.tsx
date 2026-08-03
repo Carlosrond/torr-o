@@ -7,6 +7,7 @@ import { useClientes } from '@/hooks/useClientes'
 import { usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { addDias, hojeIso } from '@/lib/data'
+import { dataCurta, kgTexto, reais } from '@/lib/formato'
 import { porCliente } from '@/lib/insights'
 import {
   apenasValidos,
@@ -21,11 +22,6 @@ import {
 } from '@/lib/metricas-venda'
 import { ROTULO_CANAL } from '@/lib/tipos'
 
-const reais = (valor: number) =>
-  valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const kgTexto = (valor: number) => `${valor.toLocaleString('pt-BR')} kg`
-const dataCurta = (iso: string) => iso.slice(8, 10) + '/' + iso.slice(5, 7)
-
 const JANELAS = [
   { dias: 30, rotulo: '30 dias' },
   { dias: 90, rotulo: '90 dias' },
@@ -34,8 +30,8 @@ const JANELAS = [
 
 export default function Painel() {
   const { data: pedidos, isLoading, error } = usePedidos()
-  const { data: faixas } = usePrecos()
-  const { data: clientes } = useClientes()
+  const { data: faixas, error: erroPrecos } = usePrecos()
+  const { data: clientes, error: erroClientes } = useClientes()
   const [dias, setDias] = useState(30)
 
   const hoje = hojeIso()
@@ -80,6 +76,19 @@ export default function Painel() {
 
   return (
     <div className="space-y-6 p-4">
+      {erroPrecos && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Não foi possível carregar a tabela de preços — o indicador de desconto vs. tabela ficou
+          indisponível.
+        </p>
+      )}
+      {erroClientes && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Não foi possível carregar os clientes — a fila de ligação pode estar sem a cadência
+          informada de alguns clientes.
+        </p>
+      )}
+
       <BlocoInsight linhas={linhasInsight} />
 
       <div className="flex gap-2">

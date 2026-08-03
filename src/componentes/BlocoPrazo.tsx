@@ -1,13 +1,10 @@
 import { Cartao } from './Cartao'
 import { Vazio } from './Estado'
+import { dataCurta, reais } from '@/lib/formato'
 import type { PedidoMetrica } from '@/lib/metricas-venda'
 import { arredondar2 } from '@/lib/numero'
 import { caixaPrevistoPorSemana, prazoMedioDias, prazoMedioPonderado } from '@/lib/prazo'
 import { ROTULO_CONDICAO, type CondicaoPagamento } from '@/lib/tipos'
-
-const reais = (valor: number) =>
-  valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const dataCurta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
 
 export function BlocoPrazo({ pedidos }: { pedidos: PedidoMetrica[] }) {
   const paraPrazo = pedidos.map((pedido) => ({
