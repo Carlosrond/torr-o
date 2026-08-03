@@ -5,6 +5,7 @@ import { RotaProtegida } from '@/componentes/RotaProtegida'
 import { ProvedorAuth } from '@/hooks/useAuth'
 import Clientes from '@/paginas/Clientes'
 import Login from '@/paginas/Login'
+import NovoPedido from '@/paginas/NovoPedido'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -28,7 +29,7 @@ export default function App() {
                 </RotaProtegida>
               }
             >
-              <Route path="/" element={<EmBreve nome="Novo pedido" />} />
+              <Route path="/" element={<NovoPedido />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/painel" element={<EmBreve nome="Painel" />} />
               <Route
