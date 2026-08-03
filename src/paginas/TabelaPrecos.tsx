@@ -88,6 +88,45 @@ export default function TabelaPrecos() {
       }
     }
 
+    // cobertura continua por SKU: sem furo e sem sobreposicao entre as faixas da nova versao
+    const FOLGA = 0.001
+    for (const sku of SKUS) {
+      const doSku = novas.filter((f) => f.sku === sku).sort((a, b) => a.kgMin - b.kgMin)
+      if (doSku.length === 0) continue
+
+      if (doSku[0].kgMin !== 0) {
+        setErroForm(`A tabela do ${sku} precisa começar em 0 kg — hoje a primeira faixa começa em ${doSku[0].kgMin} kg.`)
+        return
+      }
+
+      for (let i = 0; i < doSku.length - 1; i++) {
+        const atual = doSku[i]
+        const seguinte = doSku[i + 1]
+        if (atual.kgMax === null) {
+          setErroForm(`A tabela do ${sku} tem faixa sem teto no meio — só a última faixa pode ser sem teto.`)
+          return
+        }
+        const diferenca = seguinte.kgMin - atual.kgMax
+        if (diferenca > FOLGA) {
+          setErroForm(
+            `A tabela do ${sku} tem um furo entre ${atual.kgMax} kg e ${seguinte.kgMin} kg — pedido nessa faixa ficaria sem preço.`,
+          )
+          return
+        }
+        if (diferenca < -FOLGA) {
+          setErroForm(
+            `A tabela do ${sku} tem sobreposição entre ${atual.kgMin}–${atual.kgMax} kg e ${seguinte.kgMin}–${seguinte.kgMax ?? 'sem teto'} kg.`,
+          )
+          return
+        }
+      }
+
+      if (doSku[doSku.length - 1].kgMax !== null) {
+        setErroForm(`A última faixa do ${sku} precisa ser sem teto (o "51+ kg").`)
+        return
+      }
+    }
+
     await salvar.mutateAsync(novas)
     setLinhas([])
   }

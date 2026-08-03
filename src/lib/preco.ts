@@ -7,11 +7,18 @@ export function kgTotal(itens: ItemPedidoInput[]): number {
   return arredondar2(kg)
 }
 
-/** Faixas do SKU que já estavam vigentes na data, da versão mais nova para a mais velha. */
+/** Data de vigência mais recente que já vigia (<= data) entre as faixas do SKU. */
+function versaoVigente(faixas: FaixaPreco[], sku: Sku, data: string): string | null {
+  const datas = faixas.filter((f) => f.sku === sku && f.vigenteDesde <= data).map((f) => f.vigenteDesde)
+  if (datas.length === 0) return null
+  return datas.reduce((maisRecente, atual) => (atual > maisRecente ? atual : maisRecente))
+}
+
+/** Faixas do SKU que pertencem à versão vigente na data (não mistura versões). */
 function faixasDoSku(faixas: FaixaPreco[], sku: Sku, data: string): FaixaPreco[] {
-  return faixas
-    .filter((f) => f.sku === sku && f.vigenteDesde <= data)
-    .sort((a, b) => b.vigenteDesde.localeCompare(a.vigenteDesde))
+  const versao = versaoVigente(faixas, sku, data)
+  if (versao === null) return []
+  return faixas.filter((f) => f.sku === sku && f.vigenteDesde === versao)
 }
 
 function contemKg(faixa: FaixaPreco, kg: number): boolean {
@@ -20,7 +27,8 @@ function contemKg(faixa: FaixaPreco, kg: number): boolean {
 
 /**
  * Faixa aplicável ao SKU, dado o kg TOTAL do pedido e a data.
- * Entre versões concorrentes, ganha a de `vigenteDesde` mais recente que seja <= data.
+ * Reduz primeiro à versão (vigenteDesde) mais recente que já vigia na data e só então
+ * procura a faixa que contém o kg — uma versão incompleta nunca cai na versão anterior.
  */
 export function faixaVigente(
   faixas: FaixaPreco[],
@@ -43,12 +51,7 @@ export function proximaFaixa(
   const acima = faixasDoSku(faixas, sku, data).filter((f) => f.kgMin > atual.kgMin)
   if (acima.length === 0) return null
   const menorPiso = Math.min(...acima.map((f) => f.kgMin))
-  // entre versões do mesmo piso, a mais recente que já vigia na data
-  return (
-    acima
-      .filter((f) => f.kgMin === menorPiso)
-      .sort((a, b) => b.vigenteDesde.localeCompare(a.vigenteDesde))[0] ?? null
-  )
+  return acima.find((f) => f.kgMin === menorPiso) ?? null
 }
 
 /** Precifica os itens aplicando a faixa do kg total. Congela o preço no item. */

@@ -10,8 +10,10 @@ const FAIXAS: FaixaPreco[] = [
   { id: 'b1', sku: '500g', kgMin: 0, kgMax: 10, precoUnit: 22, vigenteDesde: '2026-01-01' },
   { id: 'b2', sku: '500g', kgMin: 10.001, kgMax: 50, precoUnit: 20, vigenteDesde: '2026-01-01' },
   { id: 'b3', sku: '500g', kgMin: 50.001, kgMax: null, precoUnit: 18, vigenteDesde: '2026-01-01' },
-  // reajuste posterior do 500g na faixa do meio
+  // reajuste posterior do 500g — versão completa, as três faixas com a mesma vigência
+  { id: 'b1v2', sku: '500g', kgMin: 0, kgMax: 10, precoUnit: 22, vigenteDesde: '2026-06-01' },
   { id: 'b2v2', sku: '500g', kgMin: 10.001, kgMax: 50, precoUnit: 21, vigenteDesde: '2026-06-01' },
+  { id: 'b3v2', sku: '500g', kgMin: 50.001, kgMax: null, precoUnit: 18, vigenteDesde: '2026-06-01' },
 ]
 
 describe('kgTotal', () => {
@@ -56,6 +58,16 @@ describe('faixaVigente', () => {
 
   it('devolve null quando nao ha faixa aplicavel', () => {
     expect(faixaVigente(FAIXAS, '500g', 20, '2025-12-31')).toBeNull()
+  })
+
+  it('versao mais recente incompleta (faixa do meio faltando) devolve null, nao vaza preco da versao anterior', () => {
+    const faixasComVersaoIncompleta: FaixaPreco[] = [
+      ...FAIXAS,
+      // reajuste do 250g esquecendo a faixa do meio (10.001-50)
+      { id: 'a1v2', sku: '250g', kgMin: 0, kgMax: 10, precoUnit: 13, vigenteDesde: '2026-08-01' },
+      { id: 'a3v2', sku: '250g', kgMin: 50.001, kgMax: null, precoUnit: 11, vigenteDesde: '2026-08-01' },
+    ]
+    expect(faixaVigente(faixasComVersaoIncompleta, '250g', 20, '2026-09-01')).toBeNull()
   })
 })
 
