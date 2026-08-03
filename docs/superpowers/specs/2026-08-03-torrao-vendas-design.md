@@ -15,8 +15,8 @@ capacidade de produção folgada — **uma máquina faz ~10× a venda atual**. O
 
 Hoje não existe registro estruturado de quem compra, quanto, a que preço e em que
 condição. Consequências: preço aplicado depende da memória do vendedor, prazo de
-pagamento não vira conta a receber, consignado não tem saldo confiável, e não há
-sinal nenhum de quando um cliente deveria recomprar.
+prazo de pagamento não é medido em nenhum lugar, consignado não tem saldo
+confiável, e não há sinal nenhum de quando um cliente deveria recomprar.
 
 O sistema não controla fábrica. Ele existe para **empurrar venda e recompra**.
 
@@ -24,7 +24,8 @@ O sistema não controla fábrica. Ele existe para **empurrar venda e recompra**.
 
 1. Lançar pedido com preço saindo automático da tabela de volume.
 2. Métricas de venda claras (kg, R$, preço realizado, mix, canal, ranking).
-3. Condição de pagamento virando conta a receber real, com atraso visível.
+3. Prazo de pagamento registrado no pedido para calcular prazo médio da carteira e
+   previsão de entrada de caixa. **Cobrança não é aqui — é no ERP.**
 4. Alerta de recompra por cliente + saldo consignado.
 
 ## 3. Arquitetura
@@ -46,11 +47,18 @@ misturaria domínios e criaria risco de RLS cruzada sem ganho real.
 `250g` e `500g`. Todo cálculo de faixa converte para **kg**.
 
 ### Condições de pagamento
-`avista` · `prazo_7` · `prazo_14` · `prazo_28` · `consignado`
+`avista` · `prazo_7` · `prazo_14` · `prazo_28` · `prazo_30` · `prazo_30_60` · `consignado`
+
+`prazo_30_60` é parcelado em duas vezes iguais, com vencimento em 30 e 60 dias.
+
+**A condição existe para cálculo, não para cobrança.** Quem emite NF e cobra é o
+ERP. Aqui o prazo serve para: saber o prazo médio real da carteira, projetar
+quando o dinheiro entra e comparar rentabilidade entre clientes que compram o
+mesmo volume em condições diferentes.
 
 ## 4. Modelo de dados
 
-Seis tabelas. Sem abstração especulativa.
+Cinco tabelas. Sem abstração especulativa.
 
 ### `clientes`
 | campo | tipo | nota |
@@ -104,20 +112,6 @@ faixa antiga — o histórico de preço precisa continuar auditável.
 `preco_unit_aplicado` é gravado, não lido da tabela na exibição. Sem isso, um
 reajuste reescreveria o faturamento passado.
 
-### `recebimentos`
-| campo | tipo | nota |
-|---|---|---|
-| id | uuid pk | |
-| pedido_id | uuid fk | |
-| vencimento | date not null | |
-| data_pagamento | date null | null = em aberto |
-| valor | numeric not null | |
-| forma | text | pix, dinheiro, boleto |
-
-Pedido `avista` gera recebimento com vencimento = data do pedido.
-Pedido `prazo_N` gera recebimento com vencimento = data + N dias.
-Pedido `consignado` **não gera recebimento** no ato — só na apuração.
-
 ### `consignado_movimentos`
 | campo | tipo | nota |
 |---|---|---|
@@ -160,12 +154,16 @@ concedido fica visível, não escondido.
 - kg por canal
 - clientes ativos no mês, novos, perdidos
 
-### Bloco B — Pagamento
-- a receber total, quebrado por atraso: a vencer / 1–7 / 8–30 / 30+ dias
-- % da venda por condição (à vista / prazo / consignado)
-- prazo médio de recebimento (dias entre pedido e pagamento)
-- inadimplência = vencido ÷ faturado
+### Bloco B — Prazo e caixa (cálculo, não cobrança)
+- % da venda por condição (à vista / 7 / 14 / 28 / 30 / 30-60 / consignado)
+- **prazo médio ponderado da carteira** em dias — ponderado por R$, não por nº de pedidos
+- **entrada de caixa prevista por semana** — cada pedido joga seu valor na semana do
+  vencimento implícito da condição (`prazo_30_60` divide 50% em cada data)
+- **prazo médio por cliente** — quem "compra bem" mas paga em 60 dias aparece
 - consignado: saldo em kg e R$ por cliente + **giro** (dias que o produto fica parado)
+
+Nada de baixa de pagamento, inadimplência ou aging de vencido: **o ERP que emite a
+NF é o dono da cobrança.** Aqui o prazo é só insumo do cálculo.
 
 ### Bloco C — Insight de revenda
 - **Na hora de recomprar** — previsão vencendo em ≤3 dias
@@ -197,9 +195,8 @@ mensal claro, troca-se por média por período — é uma função.
 | Tela | Função | Prioridade |
 |---|---|---|
 | **Novo pedido** | cliente → itens → faixa aplicada visível → condição → salvar | a mais usada, mobile-first |
-| **Clientes** | lista + ficha (histórico, cadência, saldo consignado, o que deve) | alta |
+| **Clientes** | lista + ficha (histórico, cadência, prazo médio, saldo consignado) | alta |
 | **Painel** | blocos A + B + C | alta |
-| **A receber** | baixa de pagamento em 1 toque | alta |
 | **Tabela de preços** | editar faixas criando versão nova | média |
 
 Todas as telas seguem o padrão loading / erro / vazio / sucesso — o time que
@@ -210,7 +207,7 @@ consome é leigo, estado ambíguo gera ligação.
 Supabase Auth com email + senha. Dois papéis em `profiles.role`:
 
 - **admin** (Carlos): vê e edita tudo, incluindo tabela de preços
-- **vendedor**: cria pedido, vê os próprios clientes e recebimentos, não edita preço-tabela
+- **vendedor**: cria pedido, vê os próprios clientes, não edita a tabela de preços
 
 RLS em todas as tabelas. Nenhuma policy `USING (true)`. Tabela de preços é
 leitura para vendedor, escrita só para admin.
@@ -218,6 +215,7 @@ leitura para vendedor, escrita só para admin.
 ## 10. Fora de escopo na v1
 
 - Emissão de nota fiscal
+- **Contas a receber, baixa de pagamento e cobrança** — o ERP que emite a NF é o dono
 - Controle de produção / estoque da torrefação
 - Rota de entrega e logística
 - Integração com o ERP Consinco ou com o AgroFácil
@@ -231,3 +229,5 @@ leitura para vendedor, escrita só para admin.
 | Vendedor sobrescreve preço sempre | métrica de preço realizado vs tabela expõe o padrão |
 | Consignado sem apuração em dia | giro em dias no painel denuncia saldo parado |
 | Pedido lançado com atraso distorce cadência | campo `data` é editável e separado de `created_at` |
+| Caixa previsto ≠ caixa realizado (não há baixa) | o painel rotula como **previsto pela condição**; o realizado é do ERP |
+| Pedido cancelado depois no ERP fica no painel | status `cancelado` no pedido tira do cálculo |
