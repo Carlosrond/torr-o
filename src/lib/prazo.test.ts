@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { arredondar2 } from './numero'
 import {
   caixaPrevistoPorSemana,
   prazoMedioDias,
@@ -26,7 +27,7 @@ describe('vencimentos', () => {
 
   it('30/60 com valor impar nao perde centavo', () => {
     const parcelas = vencimentos('2026-08-03', 'prazo_30_60', 100.01)
-    expect(parcelas.reduce((soma, p) => soma + p.valor, 0)).toBeCloseTo(100.01)
+    expect(arredondar2(parcelas.reduce((soma, p) => soma + p.valor, 0))).toBe(100.01)
   })
 
   it('consignado nao gera vencimento', () => {
