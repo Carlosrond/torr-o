@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { BlocoPrazo } from '@/componentes/BlocoPrazo'
 import { Cartao } from '@/componentes/Cartao'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { usePedidos } from '@/hooks/usePedidos'
@@ -164,6 +165,8 @@ export default function Painel() {
           ))}
         </ul>
       </section>
+
+      <BlocoPrazo pedidos={dados.janela} />
 
       <section>
         <h2 className="mb-2 font-semibold">Base de clientes</h2>
