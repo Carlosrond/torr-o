@@ -50,6 +50,17 @@ describe('vendaApuradaDiariaKg', () => {
     const soEntrega: MovConsignado[] = [MOVS[0]]
     expect(vendaApuradaDiariaKg(soEntrega, '2026-07-21')).toBeNull()
   })
+
+  it('retorno reduz o saldo mas nao conta como ritmo de venda', () => {
+    const comRetorno: MovConsignado[] = [
+      { sku: '500g', tipo: 'entrega', qtdPacotes: 40, data: '2026-07-01' },
+      { sku: '500g', tipo: 'venda_apurada', qtdPacotes: 10, data: '2026-07-11' },
+      { sku: '500g', tipo: 'retorno', qtdPacotes: 10, data: '2026-07-21' },
+    ]
+    // so os 10 pacotes apurados (5 kg) entram no ritmo, em 20 dias
+    expect(vendaApuradaDiariaKg(comRetorno, '2026-07-21')).toBe(0.25)
+    expect(saldoKg(comRetorno)).toBe(10)
+  })
 })
 
 describe('diasRestantes', () => {
@@ -60,6 +71,23 @@ describe('diasRestantes', () => {
 
   it('devolve null sem apuracao — nao ha ritmo para dividir', () => {
     expect(diasRestantes([MOVS[0]], '2026-07-21')).toBeNull()
+  })
+
+  it('saldo negativo nao projeta dia negativo', () => {
+    // apurou 30 pacotes mas so 20 foram entregues: inconsistencia de lancamento
+    const inconsistente: MovConsignado[] = [
+      { sku: '500g', tipo: 'entrega', qtdPacotes: 20, data: '2026-07-01' },
+      { sku: '500g', tipo: 'venda_apurada', qtdPacotes: 30, data: '2026-07-21' },
+    ]
+    expect(diasRestantes(inconsistente, '2026-07-21')).toBe(0)
+  })
+
+  it('saldo zerado significa repor agora', () => {
+    const zerado: MovConsignado[] = [
+      { sku: '500g', tipo: 'entrega', qtdPacotes: 20, data: '2026-07-01' },
+      { sku: '500g', tipo: 'venda_apurada', qtdPacotes: 20, data: '2026-07-21' },
+    ]
+    expect(diasRestantes(zerado, '2026-07-21')).toBe(0)
   })
 })
 
@@ -84,5 +112,13 @@ describe('previsaoReposicao', () => {
 
   it('devolve null quando nao da para estimar', () => {
     expect(previsaoReposicao([MOVS[0]], '2026-07-21')).toBeNull()
+  })
+
+  it('nunca devolve data no passado', () => {
+    const inconsistente: MovConsignado[] = [
+      { sku: '500g', tipo: 'entrega', qtdPacotes: 20, data: '2026-07-01' },
+      { sku: '500g', tipo: 'venda_apurada', qtdPacotes: 30, data: '2026-07-21' },
+    ]
+    expect(previsaoReposicao(inconsistente, '2026-07-21')).toBe('2026-07-21')
   })
 })

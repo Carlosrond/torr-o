@@ -50,11 +50,13 @@ export function vendaApuradaDiariaKg(movs: MovConsignado[], hoje: string): numbe
   return arredondar2(kgDe(apuradas) / dias)
 }
 
-/** Dias que o saldo atual ainda cobre no ritmo apurado. */
+/** Dias que o saldo atual ainda cobre no ritmo apurado. Saldo zerado ou negativo = repor agora. */
 export function diasRestantes(movs: MovConsignado[], hoje: string): number | null {
   const ritmo = vendaApuradaDiariaKg(movs, hoje)
   if (ritmo === null || ritmo <= 0) return null
-  return Math.round(saldoKg(movs) / ritmo)
+  // saldo negativo é inconsistência de lançamento (apurou mais do que entregou);
+  // nunca projetar data no passado — o recado operacional é "repor agora"
+  return Math.max(0, Math.round(saldoKg(movs) / ritmo))
 }
 
 /** Giro: dias desde a última apuração — ou desde a primeira entrega, se nunca apurou. */
