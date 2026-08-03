@@ -6,15 +6,12 @@ import { ProvedorAuth } from '@/hooks/useAuth'
 import Clientes from '@/paginas/Clientes'
 import Login from '@/paginas/Login'
 import NovoPedido from '@/paginas/NovoPedido'
+import Painel from '@/paginas/Painel'
 import TabelaPrecos from '@/paginas/TabelaPrecos'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 })
-
-function EmBreve({ nome }: { nome: string }) {
-  return <p className="p-6 text-stone-500">{nome} — em construção</p>
-}
 
 export default function App() {
   return (
@@ -32,7 +29,7 @@ export default function App() {
             >
               <Route path="/" element={<NovoPedido />} />
               <Route path="/clientes" element={<Clientes />} />
-              <Route path="/painel" element={<EmBreve nome="Painel" />} />
+              <Route path="/painel" element={<Painel />} />
               <Route
                 path="/precos"
                 element={
