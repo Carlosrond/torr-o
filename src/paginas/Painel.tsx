@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
+import { BlocoInsight } from '@/componentes/BlocoInsight'
 import { BlocoPrazo } from '@/componentes/BlocoPrazo'
 import { Cartao } from '@/componentes/Cartao'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
+import { useClientes } from '@/hooks/useClientes'
 import { usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { addDias, hojeIso } from '@/lib/data'
+import { porCliente } from '@/lib/insights'
 import {
   apenasValidos,
   baseDeClientes,
@@ -32,6 +35,7 @@ const JANELAS = [
 export default function Painel() {
   const { data: pedidos, isLoading, error } = usePedidos()
   const { data: faixas } = usePrecos()
+  const { data: clientes } = useClientes()
   const [dias, setDias] = useState(30)
 
   const hoje = hojeIso()
@@ -53,6 +57,19 @@ export default function Painel() {
     }
   }, [pedidos, faixas, inicio, hoje])
 
+  const cadencias = useMemo(
+    () =>
+      Object.fromEntries(
+        (clientes ?? []).map((cliente) => [cliente.id, cliente.cadenciaDeclaradaDias]),
+      ),
+    [clientes],
+  )
+
+  const linhasInsight = useMemo(
+    () => porCliente(dados.validos, cadencias, hoje),
+    [dados.validos, cadencias, hoje],
+  )
+
   if (isLoading) return <Carregando />
   if (error) return <Erro mensagem={error.message} />
   if ((pedidos ?? []).length === 0)
@@ -63,6 +80,8 @@ export default function Painel() {
 
   return (
     <div className="space-y-6 p-4">
+      <BlocoInsight linhas={linhasInsight} />
+
       <div className="flex gap-2">
         {JANELAS.map((janela) => (
           <button
