@@ -6,6 +6,7 @@ import { ProvedorAuth } from '@/hooks/useAuth'
 import Clientes from '@/paginas/Clientes'
 import Login from '@/paginas/Login'
 import NovoPedido from '@/paginas/NovoPedido'
+import TabelaPrecos from '@/paginas/TabelaPrecos'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
@@ -36,7 +37,7 @@ export default function App() {
                 path="/precos"
                 element={
                   <RotaProtegida soAdmin>
-                    <EmBreve nome="Tabela de preços" />
+                    <TabelaPrecos />
                   </RotaProtegida>
                 }
               />
