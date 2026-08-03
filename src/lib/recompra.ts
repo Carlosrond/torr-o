@@ -26,6 +26,8 @@ const PEDIDOS_PARA_QUANTIDADE = 3
 const DIAS_DE_ANTECEDENCIA = 3
 const FATOR_RISCO = 1.5
 const PISO_QUEDA = 0.7
+/** Janela de comparação do sinal `caindo` — separada da janela de cadência de propósito. */
+const PEDIDOS_PARA_QUEDA = 5
 
 function ordenados(pedidos: PedidoHistorico[]): PedidoHistorico[] {
   return [...pedidos].sort((a, b) => a.data.localeCompare(b.data))
@@ -104,9 +106,13 @@ export function sinais(
   hoje: string,
 ): Sinal[] {
   const lista = ordenados(pedidos)
-  if (previsao.confianca === 'sem_historico') return ['novo']
-
   const encontrados: Sinal[] = []
+
+  // `novo` é rótulo de confiança, não curto-circuito: um cliente com cadência
+  // declarada tem previsão válida e precisa acender na fila mesmo sem histórico.
+  if (previsao.confianca === 'sem_historico') encontrados.push('novo')
+  if (lista.length === 0) return encontrados
+
   const ultimo = lista[lista.length - 1]
 
   if (previsao.atrasoDias !== null && previsao.atrasoDias >= -DIAS_DE_ANTECEDENCIA) {
@@ -121,7 +127,7 @@ export function sinais(
   }
 
   // compara com a média dos ANTERIORES: incluir o último na média mascararia a queda
-  const anteriores = lista.slice(0, -1).slice(-PEDIDOS_PARA_CADENCIA)
+  const anteriores = lista.slice(0, -1).slice(-PEDIDOS_PARA_QUEDA)
   if (anteriores.length > 0 && ultimo.totalKg < mediaKg(anteriores) * PISO_QUEDA) {
     encontrados.push('caindo')
   }

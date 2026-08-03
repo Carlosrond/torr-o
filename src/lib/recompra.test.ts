@@ -123,6 +123,27 @@ describe('sinais', () => {
     expect(sinais(pedidos, prever(pedidos, null, '2026-07-26'), '2026-07-26')).toEqual(['novo'])
   })
 
+  it('cliente com cadencia declarada e atrasado acende na fila, nao fica so como novo', () => {
+    const pedidos = [{ data: '2026-06-01', totalKg: 15 }]
+    const hoje = '2026-07-31' // 60 dias depois, cadencia declarada de 15
+    const previsao = prever(pedidos, 15, hoje)
+    const encontrados = sinais(pedidos, previsao, hoje)
+    expect(encontrados).toContain('novo')
+    expect(encontrados).toContain('na_hora')
+    expect(encontrados).toContain('em_risco')
+  })
+
+  it('cliente novo sem cadencia declarada continua so como novo', () => {
+    const pedidos = [{ data: '2026-06-01', totalKg: 15 }]
+    const previsao = prever(pedidos, null, '2026-07-31')
+    expect(sinais(pedidos, previsao, '2026-07-31')).toEqual(['novo'])
+  })
+
+  it('sem nenhum pedido devolve so novo', () => {
+    const previsao = prever([], 15, '2026-07-31')
+    expect(sinais([], previsao, '2026-07-31')).toEqual(['novo'])
+  })
+
   it('cliente em dia fica ok', () => {
     const hoje = '2026-07-26'
     expect(sinais(REGULAR, prever(REGULAR, null, hoje), hoje)).toEqual(['ok'])
