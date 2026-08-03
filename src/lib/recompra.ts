@@ -78,8 +78,16 @@ export function prever(
     const intervalos = recentes
       .slice(1)
       .map((pedido, indice) => diffDias(recentes[indice].data, pedido.data))
-    cadenciaDias = Math.round(intervalos.reduce((soma, d) => soma + d, 0) / intervalos.length)
-    origemCadencia = 'calculada'
+      // dois pedidos na mesma data (segundo pedido do dia, correcao de lancamento) dao
+      // intervalo 0 -- descarta antes da media pra nao travar o cliente em cadencia 0
+      .filter((d) => d > 0)
+    if (intervalos.length > 0) {
+      cadenciaDias = Math.round(intervalos.reduce((soma, d) => soma + d, 0) / intervalos.length)
+      origemCadencia = 'calculada'
+    } else if (cadenciaDeclaradaDias !== null) {
+      cadenciaDias = cadenciaDeclaradaDias
+      origemCadencia = 'declarada'
+    }
   } else if (cadenciaDeclaradaDias !== null) {
     cadenciaDias = cadenciaDeclaradaDias
     origemCadencia = 'declarada'

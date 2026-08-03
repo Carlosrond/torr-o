@@ -4,9 +4,10 @@ import { useClientes } from '@/hooks/useClientes'
 import { useCriarPedido } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
+import { arredondar2 } from '@/lib/numero'
 import { faixaVigente, kgTotal, precificar, totalPedido } from '@/lib/preco'
 import { vencimentos } from '@/lib/prazo'
-import { oportunidadeFaixa } from '@/lib/recompra'
+import { oportunidadeFaixa, type OportunidadeFaixa } from '@/lib/recompra'
 import { ROTULO_CONDICAO, SKUS, type CondicaoPagamento, type ItemPrecificado, type Sku } from '@/lib/tipos'
 
 const reais = (valor: number) =>
@@ -40,10 +41,11 @@ export default function NovoPedido() {
       const itens: ItemPrecificado[] = daTabela.map((item) => {
         const manual = Number(precosManuais[item.sku])
         if (!ajustando || !manual || manual <= 0) return item
+        const precoUnit = arredondar2(manual)
         return {
           ...item,
-          precoUnit: manual,
-          subtotal: Math.round(manual * item.qtdPacotes * 100) / 100,
+          precoUnit,
+          subtotal: arredondar2(precoUnit * item.qtdPacotes),
         }
       })
       return { itens, total: totalPedido(itens), tabela: daTabela }
@@ -54,8 +56,22 @@ export default function NovoPedido() {
   }, [faixas, JSON.stringify(itensInput), data, ajustando, JSON.stringify(precosManuais)])
 
   const kg = kgTotal(itensInput)
-  const oportunidade =
-    faixas && kg > 0 ? oportunidadeFaixa(faixas, '500g', kg, data) : null
+  // oportunidade so faz sentido para os SKUs que estao no pedido; com mais de um,
+  // mostra o de maior economia por pacote em vez de fixar um SKU que pode nem estar no carrinho
+  const oportunidade = useMemo(() => {
+    if (!faixas || kg <= 0) return null
+    const candidatas = itensInput
+      .map((item) => {
+        const o = oportunidadeFaixa(faixas, item.sku, kg, data)
+        return o ? { ...o, sku: item.sku } : null
+      })
+      .filter((o): o is OportunidadeFaixa & { sku: Sku } => o !== null)
+    if (candidatas.length === 0) return null
+    return candidatas.reduce((melhor, atual) =>
+      atual.economiaPorPacote > melhor.economiaPorPacote ? atual : melhor,
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [faixas, JSON.stringify(itensInput), kg, data])
 
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
@@ -168,8 +184,9 @@ export default function NovoPedido() {
 
         {oportunidade && (
           <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-            Faltam {oportunidade.kgFaltando.toLocaleString('pt-BR')} kg para o pacote de 500g cair
-            de {reais(oportunidade.precoAtual)} para {reais(oportunidade.precoMelhor)}.
+            Faltam {oportunidade.kgFaltando.toLocaleString('pt-BR')} kg para o pacote de{' '}
+            {oportunidade.sku} cair de {reais(oportunidade.precoAtual)} para{' '}
+            {reais(oportunidade.precoMelhor)}.
           </p>
         )}
       </div>

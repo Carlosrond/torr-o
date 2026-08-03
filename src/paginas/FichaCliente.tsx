@@ -11,7 +11,7 @@ import { diasParado, previsaoReposicao, saldoKg, saldoPorSku } from '@/lib/consi
 import { porCliente } from '@/lib/insights'
 import { oportunidadeFaixa } from '@/lib/recompra'
 import { prazoMedioPonderado } from '@/lib/prazo'
-import { ROTULO_CANAL, ROTULO_CONDICAO, SKUS } from '@/lib/tipos'
+import { KG_POR_SKU, ROTULO_CANAL, ROTULO_CONDICAO, SKUS, type Sku } from '@/lib/tipos'
 
 const reais = (valor: number) =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -40,8 +40,22 @@ export default function FichaCliente() {
 
   const linha = porCliente(doCliente, { [id]: cliente.cadenciaDeclaradaDias }, hoje)[0] ?? null
   const kgTipico = linha?.previsao.qtdSugeridaKg ?? 0
+
+  // SKU que o cliente mais compra em kg no historico -- sem historico, nao ha sobre o que opinar
+  const kgPorSkuHistorico: Record<Sku, number> = { '250g': 0, '500g': 0 }
+  for (const pedido of doCliente) {
+    for (const item of pedido.itens) {
+      kgPorSkuHistorico[item.sku] += KG_POR_SKU[item.sku] * item.qtdPacotes
+    }
+  }
+  const skuMaisComprado = SKUS.filter((sku) => kgPorSkuHistorico[sku] > 0).reduce<Sku | null>(
+    (melhor, atual) => (melhor === null || kgPorSkuHistorico[atual] > kgPorSkuHistorico[melhor] ? atual : melhor),
+    null,
+  )
   const oportunidade =
-    faixas && kgTipico > 0 ? oportunidadeFaixa(faixas, '500g', kgTipico, hoje) : null
+    faixas && skuMaisComprado && kgTipico > 0
+      ? oportunidadeFaixa(faixas, skuMaisComprado, kgTipico, hoje)
+      : null
   const prazoMedio = prazoMedioPonderado(
     doCliente.map((pedido) => ({
       data: pedido.data,
@@ -104,7 +118,7 @@ export default function FichaCliente() {
       {oportunidade && (
         <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
           Argumento de venda: com {oportunidade.kgFaltando.toLocaleString('pt-BR')} kg a mais, o
-          pacote de 500g cai de {reais(oportunidade.precoAtual)} para{' '}
+          pacote de {skuMaisComprado} cai de {reais(oportunidade.precoAtual)} para{' '}
           {reais(oportunidade.precoMelhor)} — {reais(oportunidade.economiaPorPacote)} por pacote.
         </p>
       )}

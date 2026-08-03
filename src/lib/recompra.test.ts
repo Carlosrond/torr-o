@@ -53,6 +53,19 @@ describe('prever', () => {
     expect(prever(pedidos, null, '2026-08-05').qtdSugeridaKg).toBe(20)
   })
 
+  it('dois pedidos na mesma data (segundo pedido do dia) nao zeram a cadencia', () => {
+    const pedidos: PedidoHistorico[] = [
+      { data: '2026-07-04', totalKg: 20 },
+      { data: '2026-07-14', totalKg: 5 }, // correcao de lancamento no mesmo dia do proximo
+      { data: '2026-07-14', totalKg: 20 },
+      { data: '2026-07-24', totalKg: 20 },
+    ]
+    const p = prever(pedidos, null, '2026-07-28')
+    expect(p.cadenciaDias).toBe(10)
+    expect(p.cadenciaDias).not.toBe(0)
+    expect(p.origemCadencia).toBe('calculada')
+  })
+
   it('com 2 pedidos a confianca e baixa', () => {
     expect(prever(REGULAR.slice(0, 2), null, '2026-07-20').confianca).toBe('baixa')
   })
