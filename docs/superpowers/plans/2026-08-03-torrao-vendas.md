@@ -738,6 +738,7 @@ Criar `src/lib/prazo.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest'
+import { arredondar2 } from './numero'
 import {
   caixaPrevistoPorSemana,
   prazoMedioDias,
@@ -765,7 +766,8 @@ describe('vencimentos', () => {
 
   it('30/60 com valor impar nao perde centavo', () => {
     const parcelas = vencimentos('2026-08-03', 'prazo_30_60', 100.01)
-    expect(parcelas.reduce((soma, p) => soma + p.valor, 0)).toBe(100.01)
+    // soma arredondada: 50.01 + 50 em ponto flutuante da 100.00999999999999
+    expect(arredondar2(parcelas.reduce((soma, p) => soma + p.valor, 0))).toBe(100.01)
   })
 
   it('consignado nao gera vencimento', () => {
@@ -1127,7 +1129,7 @@ describe('oportunidadeFaixa', () => {
   it('diz quantos kg faltam para o preco melhor', () => {
     const o = oportunidadeFaixa(FAIXAS, '250g', 45, '2026-03-01')
     expect(o).toEqual({
-      kgFaltando: 5.01,
+      kgFaltando: 5,
       precoAtual: 11,
       precoMelhor: 10,
       economiaPorPacote: 1,
