@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Cartao } from '@/componentes/Cartao'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { useClientes } from '@/hooks/useClientes'
-import { useConsignado } from '@/hooks/useConsignado'
-import { usePedidos } from '@/hooks/usePedidos'
+import { useApurarConsignado, useConsignado } from '@/hooks/useConsignado'
+import { useCancelarPedido, usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
 import { diasParado, previsaoReposicao, saldoKg, saldoPorSku } from '@/lib/consignado'
@@ -23,6 +23,14 @@ export default function FichaCliente() {
   const { data: pedidos, isLoading: carregandoPedidos } = usePedidos()
   const { data: faixas } = usePrecos()
   const { data: movimentos } = useConsignado(id || null)
+  const apurar = useApurarConsignado()
+  const cancelar = useCancelarPedido()
+
+  const [skuApuracao, setSkuApuracao] = useState<Sku>(SKUS[0])
+  const [qtdApuracao, setQtdApuracao] = useState('')
+  const [dataApuracao, setDataApuracao] = useState(hojeIso())
+  const [tipoApuracao, setTipoApuracao] = useState<'venda_apurada' | 'retorno'>('venda_apurada')
+  const [erroApuracao, setErroApuracao] = useState<string | null>(null)
 
   const hoje = hojeIso()
   const cliente = (clientes ?? []).find((c) => c.id === id) ?? null
@@ -66,6 +74,39 @@ export default function FichaCliente() {
   const movs = movimentos ?? []
   const saldo = saldoPorSku(movs)
   const temConsignado = SKUS.some((sku) => saldo[sku] !== 0)
+  const skusComSaldo = SKUS.filter((sku) => saldo[sku] > 0)
+
+  async function registrarApuracao(evento: React.FormEvent) {
+    evento.preventDefault()
+    setErroApuracao(null)
+    const qtd = Number(qtdApuracao)
+    if (!Number.isFinite(qtd) || qtd <= 0) {
+      setErroApuracao('A quantidade precisa ser maior que zero.')
+      return
+    }
+    const saldoDoSku = saldo[skuApuracao] ?? 0
+    if (qtd > saldoDoSku) {
+      setErroApuracao(`Só há ${saldoDoSku} pacote(s) de ${skuApuracao} de saldo nesse cliente.`)
+      return
+    }
+    try {
+      await apurar.mutateAsync({
+        clienteId: id,
+        sku: skuApuracao,
+        tipo: tipoApuracao,
+        qtdPacotes: qtd,
+        data: dataApuracao,
+      })
+      setQtdApuracao('')
+    } catch (e) {
+      setErroApuracao(e instanceof Error ? e.message : 'Erro ao registrar.')
+    }
+  }
+
+  async function cancelarPedidoLancado(pedidoId: string) {
+    if (!window.confirm('Cancelar esse pedido? Ele sai do painel e do histórico de venda.')) return
+    await cancelar.mutateAsync(pedidoId)
+  }
 
   return (
     <div className="space-y-6 p-4">
@@ -139,6 +180,57 @@ export default function FichaCliente() {
               detalhe="no ritmo apurado"
             />
           </div>
+
+          {skusComSaldo.length > 0 && (
+            <form onSubmit={registrarApuracao} className="mt-3 space-y-2 rounded-xl bg-white p-4 shadow">
+              <h3 className="text-sm font-semibold">Apurar consignado</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={skuApuracao}
+                  onChange={(e) => setSkuApuracao(e.target.value as Sku)}
+                  className="rounded-lg border border-stone-300 px-2 py-2"
+                >
+                  {skusComSaldo.map((sku) => (
+                    <option key={sku} value={sku}>
+                      {sku} ({saldo[sku]} pacotes em saldo)
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={tipoApuracao}
+                  onChange={(e) => setTipoApuracao(e.target.value as 'venda_apurada' | 'retorno')}
+                  className="rounded-lg border border-stone-300 px-2 py-2"
+                >
+                  <option value="venda_apurada">Vendeu</option>
+                  <option value="retorno">Devolveu</option>
+                </select>
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  placeholder="Qtd. pacotes"
+                  value={qtdApuracao}
+                  onChange={(e) => setQtdApuracao(e.target.value)}
+                  className="rounded-lg border border-stone-300 px-3 py-2"
+                />
+                <input
+                  type="date"
+                  value={dataApuracao}
+                  onChange={(e) => setDataApuracao(e.target.value)}
+                  className="rounded-lg border border-stone-300 px-3 py-2"
+                />
+              </div>
+              {erroApuracao && <p className="text-sm text-red-700">{erroApuracao}</p>}
+              {apurar.error && <p className="text-sm text-red-700">{apurar.error.message}</p>}
+              <button
+                type="submit"
+                disabled={apurar.isPending}
+                className="w-full rounded-lg bg-amber-800 py-3 font-semibold text-white disabled:opacity-50"
+              >
+                {apurar.isPending ? 'Registrando…' : 'Registrar'}
+              </button>
+            </form>
+          )}
         </section>
       )}
 
@@ -151,12 +243,20 @@ export default function FichaCliente() {
             {[...doCliente]
               .sort((a, b) => b.data.localeCompare(a.data))
               .map((pedido) => (
-                <li key={pedido.id} className="flex justify-between p-3 text-sm">
+                <li key={pedido.id} className="flex items-center justify-between gap-2 p-3 text-sm">
                   <span>
                     {dataCurta(pedido.data)} · {ROTULO_CONDICAO[pedido.condicao]}
                   </span>
-                  <span>
+                  <span className="flex items-center gap-2">
                     {pedido.totalKg.toLocaleString('pt-BR')} kg · {reais(pedido.totalValor)}
+                    <button
+                      type="button"
+                      onClick={() => cancelarPedidoLancado(pedido.id)}
+                      disabled={cancelar.isPending}
+                      className="text-xs text-stone-400 underline disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
                   </span>
                 </li>
               ))}

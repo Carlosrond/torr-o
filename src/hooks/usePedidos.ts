@@ -110,3 +110,18 @@ export function useCriarPedido() {
     },
   })
 }
+
+/** Cancela um pedido lançado errado — não apaga, só marca como cancelado. */
+export function useCancelarPedido() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('pedidos').update({ status: 'cancelado' }).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.invalidateQueries({ queryKey: ['consignado'] })
+    },
+  })
+}
