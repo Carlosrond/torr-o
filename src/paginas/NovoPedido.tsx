@@ -6,10 +6,15 @@ import { usePrecos } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
 import { dataLonga, kgTexto, reais } from '@/lib/formato'
 import { arredondar2, paraNumero } from '@/lib/numero'
-import { kgTotal, precificar, totalPedido } from '@/lib/preco'
+import { ehMultiploValido, kgMaisProximos, kgTotal, precificar, totalPedido } from '@/lib/preco'
 import { vencimentos } from '@/lib/prazo'
 import { oportunidadeFaixa, type OportunidadeFaixa } from '@/lib/recompra'
-import { ROTULO_CONDICAO, SKUS, type CondicaoPagamento, type ItemPrecificado, type Sku } from '@/lib/tipos'
+import { KG_POR_SKU, ROTULO_CONDICAO, SKUS, type CondicaoPagamento, type ItemPrecificado, type Sku } from '@/lib/tipos'
+
+/** Quantos pacotes desse SKU, sozinho, fecham o múltiplo de 5 kg — ajuda o vendedor a acertar. */
+function pacotesPara5kg(sku: Sku): number {
+  return 5 / KG_POR_SKU[sku]
+}
 
 export default function NovoPedido() {
   const { data: clientes, isLoading: carregandoClientes, error: erroClientes } = useClientes()
@@ -139,6 +144,9 @@ export default function NovoPedido() {
               onChange={(e) => setQuantidades({ ...quantidades, [sku]: e.target.value })}
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3 text-lg"
             />
+            <span className="mt-1 block text-xs text-stone-400">
+              {pacotesPara5kg(sku)} pacotes = {kgTexto(5)}
+            </span>
           </label>
         ))}
       </div>
@@ -146,6 +154,18 @@ export default function NovoPedido() {
       <div className="rounded-xl bg-white p-4 shadow">
         <p className="text-sm text-stone-500">Volume do pedido</p>
         <p className="text-2xl font-bold">{kgTexto(kg)}</p>
+
+        {kg > 0 && !ehMultiploValido(kg) && (
+          <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+            {(() => {
+              const { abaixo, acima } = kgMaisProximos(kg)
+              if (abaixo === null) {
+                return `${kgTexto(kg)} não fecha caixa. O mínimo é ${kgTexto(acima)}.`
+              }
+              return `${kgTexto(kg)} não fecha caixa. O pedido é sempre em múltiplo de 5 kg — ajuste para ${kgTexto(abaixo)} ou ${kgTexto(acima)}.`
+            })()}
+          </p>
+        )}
 
         {calculo && 'erro' in calculo && <p className="mt-2 text-sm text-red-700">{calculo.erro}</p>}
 
@@ -239,7 +259,7 @@ export default function NovoPedido() {
 
       <button
         type="submit"
-        disabled={!clienteId || itensInput.length === 0 || criar.isPending}
+        disabled={!clienteId || itensInput.length === 0 || !ehMultiploValido(kg) || criar.isPending}
         className="w-full rounded-lg bg-amber-800 py-4 text-lg font-semibold text-white disabled:opacity-50"
       >
         {criar.isPending ? 'Salvando…' : 'Salvar pedido'}

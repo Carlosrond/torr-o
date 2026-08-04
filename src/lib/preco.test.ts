@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { FaixaPreco } from './tipos'
-import { faixaVigente, kgTotal, precificar, proximaFaixa, totalPedido } from './preco'
+import {
+  ehMultiploValido,
+  faixaVigente,
+  kgMaisProximos,
+  kgTotal,
+  precificar,
+  proximaFaixa,
+  totalPedido,
+} from './preco'
 
 /** Tabela de exemplo: faixas em kg do pedido inteiro, por SKU. */
 const FAIXAS: FaixaPreco[] = [
@@ -111,6 +119,45 @@ describe('totalPedido', () => {
       { sku: '500g', qtdPacotes: 20, precoUnit: 20, subtotal: 400 },
     ])
     expect(total).toEqual({ totalKg: 12, totalValor: 488 })
+  })
+})
+
+describe('ehMultiploValido', () => {
+  it('aceita multiplos positivos de 5', () => {
+    expect(ehMultiploValido(5)).toBe(true)
+    expect(ehMultiploValido(10)).toBe(true)
+    expect(ehMultiploValido(50)).toBe(true)
+    expect(ehMultiploValido(500)).toBe(true)
+  })
+
+  it('rejeita 0 (pedido vazio nao e pedido)', () => {
+    expect(ehMultiploValido(0)).toBe(false)
+  })
+
+  it('rejeita valores que nao sao multiplo de 5', () => {
+    expect(ehMultiploValido(12)).toBe(false)
+    expect(ehMultiploValido(2.5)).toBe(false)
+    expect(ehMultiploValido(0.25)).toBe(false)
+  })
+
+  it('tolera erro de ponto flutuante de ate 0.001', () => {
+    expect(ehMultiploValido(9.9995)).toBe(true)
+    expect(ehMultiploValido(10.0009)).toBe(true)
+    expect(ehMultiploValido(10.01)).toBe(false)
+  })
+})
+
+describe('kgMaisProximos', () => {
+  it('devolve o multiplo abaixo e acima para valor invalido', () => {
+    expect(kgMaisProximos(12)).toEqual({ abaixo: 10, acima: 15 })
+  })
+
+  it('nao existe multiplo positivo abaixo de 5', () => {
+    expect(kgMaisProximos(2)).toEqual({ abaixo: null, acima: 5 })
+  })
+
+  it('valor ja valido devolve o proprio valor nos dois lados', () => {
+    expect(kgMaisProximos(10)).toEqual({ abaixo: 10, acima: 10 })
   })
 })
 

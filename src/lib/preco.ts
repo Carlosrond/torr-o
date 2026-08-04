@@ -77,6 +77,24 @@ export function precificar(
     })
 }
 
+/** Múltiplo em kg em que todo pedido é fechado — regra da operação, não da faixa de preço. */
+export const MULTIPLO_KG = 5
+
+/** Verdadeiro quando kg é múltiplo positivo de MULTIPLO_KG (tolerância de ponto flutuante). */
+export function ehMultiploValido(kg: number): boolean {
+  if (kg <= 0) return false
+  const resto = kg % MULTIPLO_KG
+  return resto < 0.001 || MULTIPLO_KG - resto < 0.001
+}
+
+/** Múltiplos de 5 imediatamente abaixo e acima de kg, para a tela sugerir ajuste. */
+export function kgMaisProximos(kg: number): { abaixo: number | null; acima: number } {
+  if (ehMultiploValido(kg)) return { abaixo: kg, acima: kg }
+  const abaixo = Math.floor(kg / MULTIPLO_KG) * MULTIPLO_KG
+  const acima = abaixo + MULTIPLO_KG
+  return { abaixo: abaixo > 0 ? abaixo : null, acima }
+}
+
 export function totalPedido(itens: ItemPrecificado[]): { totalKg: number; totalValor: number } {
   return {
     totalKg: kgTotal(itens),
