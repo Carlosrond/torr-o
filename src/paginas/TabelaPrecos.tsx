@@ -14,17 +14,20 @@ interface LinhaForm {
   precoUnit: string
 }
 
-/** Faixas em vigor hoje: para cada (sku, kgMin), a versão mais recente já vigente. */
+/**
+ * Faixas em vigor hoje: para cada SKU, acha a maior vigenteDesde <= hoje e devolve
+ * só as faixas daquela data — nunca mistura faixas de versões diferentes do mesmo SKU.
+ */
 function vigentesHoje(faixas: FaixaPreco[], hoje: string): FaixaPreco[] {
-  const porChave = new Map<string, FaixaPreco>()
-  for (const faixa of faixas.filter((f) => f.vigenteDesde <= hoje)) {
-    const chave = `${faixa.sku}|${faixa.kgMin}`
-    const atual = porChave.get(chave)
-    if (!atual || faixa.vigenteDesde > atual.vigenteDesde) porChave.set(chave, faixa)
+  const jaVigentes = faixas.filter((f) => f.vigenteDesde <= hoje)
+  const versaoPorSku = new Map<string, string>()
+  for (const faixa of jaVigentes) {
+    const atual = versaoPorSku.get(faixa.sku)
+    if (!atual || faixa.vigenteDesde > atual) versaoPorSku.set(faixa.sku, faixa.vigenteDesde)
   }
-  return [...porChave.values()].sort(
-    (a, b) => a.sku.localeCompare(b.sku) || a.kgMin - b.kgMin,
-  )
+  return jaVigentes
+    .filter((f) => f.vigenteDesde === versaoPorSku.get(f.sku))
+    .sort((a, b) => a.sku.localeCompare(b.sku) || a.kgMin - b.kgMin)
 }
 
 /**
@@ -69,6 +72,7 @@ export default function TabelaPrecos() {
   if (error) return <Erro mensagem={error.message} />
 
   const emVigor = vigentesHoje(faixas ?? [], hojeIso())
+  const jaExisteNaData = (faixas ?? []).some((f) => f.vigenteDesde === vigenteDesde)
 
   function carregarDoAtual() {
     setLinhas(normalizarParaGrade5(emVigor))
@@ -134,7 +138,8 @@ export default function TabelaPrecos() {
       <form onSubmit={enviar} className="space-y-3 rounded-xl bg-white p-4 shadow">
         <h2 className="font-semibold">Nova versão da tabela</h2>
         <p className="text-sm text-stone-500">
-          Salvar cria uma versão nova. Os pedidos já lançados continuam com o preço que tiveram.
+          Salvar substitui inteiramente a versão gravada nesta data de vigência. Datas
+          anteriores continuam intactas como histórico dos pedidos já lançados.
         </p>
 
         <label className="block text-sm">
@@ -223,6 +228,12 @@ export default function TabelaPrecos() {
           </div>
         ))}
 
+        {jaExisteNaData && (
+          <p className="text-sm text-amber-800">
+            Já existe uma tabela com vigência em {dataLonga(vigenteDesde)}. Salvar vai
+            substituí-la.
+          </p>
+        )}
         {erroForm && <p className="text-sm text-red-700">{erroForm}</p>}
         {salvar.error && <p className="text-sm text-red-700">{salvar.error.message}</p>}
 

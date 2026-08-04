@@ -37,20 +37,25 @@ export function usePrecos() {
 
 export type NovaFaixa = Omit<FaixaPreco, 'id'>
 
-/** Grava um lote de faixas como uma nova versão. Nunca faz UPDATE em faixa antiga. */
+/**
+ * Grava um lote de faixas como a versão daquela vigente_desde. O RPC substitui
+ * inteiramente o que existir na mesma data (nunca acrescenta) — nunca faz UPDATE
+ * em faixa de data anterior, essas continuam sendo o histórico.
+ */
 export function useSalvarFaixas() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (faixas: NovaFaixa[]) => {
-      const { error } = await supabase.from('precos_faixa').insert(
-        faixas.map((f) => ({
+      const vigenteDesde = faixas[0].vigenteDesde
+      const { error } = await supabase.rpc('salvar_versao_precos', {
+        p_vigente_desde: vigenteDesde,
+        p_faixas: faixas.map((f) => ({
           sku: f.sku,
           kg_min: f.kgMin,
           kg_max: f.kgMax,
           preco_unit: f.precoUnit,
-          vigente_desde: f.vigenteDesde,
         })),
-      )
+      })
       if (error) throw new Error(error.message)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['precos'] }),

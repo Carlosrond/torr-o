@@ -241,6 +241,22 @@ describe('validarFaixas', () => {
     )
   })
 
+  it('rejeita sobreposição no meio da tabela em geral (caso 5-15 e 10-25, sem envolver zero)', () => {
+    const resultado = validarFaixas([faixa(5, 15, 11), faixa(10, 25, 10), faixa(30, null, 8.7)])
+    expect(resultado).toBe(
+      'As faixas do 250g se sobrepõem: uma vai até 15 kg e a seguinte já começa em 10 kg.',
+    )
+  })
+
+  it('grade antiga (0-10) misturada com a nova (5-10) do mesmo SKU: 0 passa no multiplo de 5, mas a regra de "primeira faixa começa em 5" barra a mistura das duas versões', () => {
+    // este é o cenário real do incidente: salvar duas vezes na mesma data deixou
+    // 0-10 (versão antiga) e 5-10 (versão nova) juntas na mesma vigência.
+    const resultado = validarFaixas([faixa(0, 10, 12), faixa(5, 10, 12), faixa(55, null, 10)])
+    expect(resultado).toBe(
+      'A primeira faixa do 250g começa em 0 kg. Ela precisa começar em 5 kg, que é o pedido mínimo.',
+    )
+  })
+
   it('rejeita furo real entre faixas', () => {
     const resultado = validarFaixas([faixa(5, 25, 11), faixa(40, null, 8.7)])
     expect(resultado).toBe(
