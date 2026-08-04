@@ -308,6 +308,36 @@ export function precificarProdutos(
     })
 }
 
+/**
+ * Pacotes que fecham uma caixa de MULTIPLO_KG para um peso de pacote
+ * (0,25 kg → 20; 0,5 kg → 10; 1 kg → 5). null quando o peso não divide a caixa.
+ * Conta em gramas inteiros — 5/0.25 em float não é confiável.
+ */
+export function pacotesPorCaixa(pesoKg: number): number | null {
+  const pesoG = paraGramas(pesoKg)
+  if (pesoG <= 0 || MULTIPLO_G % pesoG !== 0) return null
+  return MULTIPLO_G / pesoG
+}
+
+/**
+ * A caixa fecha POR PRODUTO, não só no total: não existe pedir 5 pacotes de 250g
+ * (1,25 kg) — o produto vai de 20 em 20. Devolve a primeira mensagem de item que
+ * não fecha caixa, ou null quando o pedido está redondo.
+ */
+export function validarItensCaixa(itens: ItemProdutoInput[], produtos: Produto[]): string | null {
+  for (const item of itens) {
+    const produto = produtos.find((p) => p.id === item.produtoId)
+    if (!produto || item.qtdPacotes <= 0) continue
+    const kgItem = arredondar2(produto.pesoKg * item.qtdPacotes)
+    if (paraGramas(kgItem) % MULTIPLO_G === 0) continue
+    const caixa = pacotesPorCaixa(produto.pesoKg)
+    return caixa
+      ? `${item.qtdPacotes} pacote(s) de ${produto.nome} dá ${kgItem} kg — esse produto vai de ${caixa} em ${caixa} pacotes (${MULTIPLO_KG} kg por caixa).`
+      : `${item.qtdPacotes} pacote(s) de ${produto.nome} dá ${kgItem} kg — ajuste para fechar múltiplo de ${MULTIPLO_KG} kg.`
+  }
+  return null
+}
+
 export function totalPedidoProdutos(
   itens: ItemProdutoPrecificado[],
   produtos: Produto[],

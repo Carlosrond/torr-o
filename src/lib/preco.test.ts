@@ -7,12 +7,14 @@ import {
   kgMaisProximos,
   kgTotal,
   kgTotalProdutos,
+  pacotesPorCaixa,
   precificar,
   precificarProdutos,
   proximaFaixa,
   proximaFaixaProduto,
   totalPedido,
   totalPedidoProdutos,
+  validarItensCaixa,
   validarFaixas,
   validarFaixasProduto,
   type FaixaParaValidar,
@@ -527,5 +529,50 @@ describe('validarFaixasProduto', () => {
     expect(resultado).toBe(
       'A primeira faixa do inexistente começa em 30 kg. Ela precisa começar em 5 kg, que é o pedido mínimo.',
     )
+  })
+})
+
+describe('pacotesPorCaixa', () => {
+  it('converte o peso do pacote em pacotes por caixa de 5 kg', () => {
+    expect(pacotesPorCaixa(0.25)).toBe(20)
+    expect(pacotesPorCaixa(0.5)).toBe(10)
+    expect(pacotesPorCaixa(1)).toBe(5)
+    expect(pacotesPorCaixa(5)).toBe(1)
+  })
+
+  it('peso que nao divide a caixa devolve null', () => {
+    expect(pacotesPorCaixa(0.3)).toBeNull()
+    expect(pacotesPorCaixa(0)).toBeNull()
+  })
+})
+
+describe('validarItensCaixa', () => {
+  const produtos: Produto[] = [
+    { id: 'p250', nome: 'Café Torrão 250g', descricao: null, pesoKg: 0.25, fotoUrl: null, skuLegado: '250g', ativo: true, ordem: 1 },
+    { id: 'p500', nome: 'Café Torrão 500g', descricao: null, pesoKg: 0.5, fotoUrl: null, skuLegado: '500g', ativo: true, ordem: 2 },
+  ]
+
+  it('caixa fechada por produto passa', () => {
+    expect(validarItensCaixa([{ produtoId: 'p250', qtdPacotes: 20 }], produtos)).toBeNull()
+    expect(validarItensCaixa([{ produtoId: 'p250', qtdPacotes: 40 }, { produtoId: 'p500', qtdPacotes: 10 }], produtos)).toBeNull()
+  })
+
+  it('5 pacotes de 250g (1,25 kg) nao existe — o caso da tela', () => {
+    const erro = validarItensCaixa([{ produtoId: 'p250', qtdPacotes: 5 }], produtos)
+    expect(erro).toContain('1.25 kg')
+    expect(erro).toContain('de 20 em 20')
+  })
+
+  it('total fechado com itens quebrados TAMBEM e recusado', () => {
+    // 10x250g (2,5) + 5x500g (2,5) = 5 kg no total, mas nenhuma caixa fecha
+    const erro = validarItensCaixa(
+      [{ produtoId: 'p250', qtdPacotes: 10 }, { produtoId: 'p500', qtdPacotes: 5 }],
+      produtos,
+    )
+    expect(erro).toContain('de 20 em 20')
+  })
+
+  it('quantidade zero nao acusa nada', () => {
+    expect(validarItensCaixa([{ produtoId: 'p250', qtdPacotes: 0 }], produtos)).toBeNull()
   })
 })

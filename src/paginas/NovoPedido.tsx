@@ -12,8 +12,10 @@ import {
   ehMultiploValido,
   kgMaisProximos,
   kgTotalProdutos,
+  pacotesPorCaixa,
   precificarProdutos,
   totalPedidoProdutos,
+  validarItensCaixa,
   type FaixaProduto,
   type ItemProdutoInput,
   type ItemProdutoPrecificado,
@@ -50,18 +52,24 @@ function FotoMiniatura({ produto }: { produto: Produto }) {
 
 function ControleQuantidade({
   valor,
+  passo,
   onChange,
 }: {
   valor: string
+  /** Pacotes por caixa de 5 kg: os botões andam de caixa em caixa, nunca de 1 em 1. */
+  passo: number
   onChange: (novo: string) => void
 }) {
   const numero = Number(valor) || 0
+  // se o valor digitado está fora da grade, − e + arredondam pra caixa vizinha
+  const anterior = Math.max(0, (Math.ceil(numero / passo) - 1) * passo)
+  const proximo = (Math.floor(numero / passo) + 1) * passo
   return (
     <div className="flex items-center gap-1">
       <button
         type="button"
-        onClick={() => onChange(String(Math.max(0, numero - 1)))}
-        aria-label="Diminuir quantidade"
+        onClick={() => onChange(anterior === 0 ? '' : String(anterior))}
+        aria-label={`Diminuir uma caixa (${passo} pacotes)`}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-stone-300 text-lg font-semibold text-stone-700"
       >
         −
@@ -69,6 +77,7 @@ function ControleQuantidade({
       <input
         type="number"
         min={0}
+        step={passo}
         inputMode="numeric"
         value={valor}
         onChange={(e) => onChange(e.target.value)}
@@ -76,8 +85,8 @@ function ControleQuantidade({
       />
       <button
         type="button"
-        onClick={() => onChange(String(numero + 1))}
-        aria-label="Aumentar quantidade"
+        onClick={() => onChange(String(proximo))}
+        aria-label={`Aumentar uma caixa (${passo} pacotes)`}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-stone-300 text-lg font-semibold text-stone-700"
       >
         +
@@ -147,6 +156,9 @@ export default function NovoPedido() {
 
   const kg = produtos ? kgTotalProdutos(itensInput, produtos) : 0
 
+  // a caixa fecha POR PRODUTO: 5 pacotes de 250g (1,25 kg) nao existe na operacao
+  const erroCaixa = produtos ? validarItensCaixa(itensInput, produtos) : null
+
   // preço digitado que não é preço não pode passar calado: trava o salvamento e diz o quê
   const erroPrecoManual = ajustando
     ? (itensInput
@@ -175,7 +187,7 @@ export default function NovoPedido() {
 
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
-    if (!calculo || 'erro' in calculo || erroPrecoManual) return
+    if (!calculo || 'erro' in calculo || erroPrecoManual || erroCaixa) return
     const id = await criar.mutateAsync({
       clienteId,
       data,
@@ -265,6 +277,7 @@ export default function NovoPedido() {
                 </div>
                 <ControleQuantidade
                   valor={quantidades[produto.id] ?? ''}
+                  passo={pacotesPorCaixa(produto.pesoKg) ?? 1}
                   onChange={(v) => setQuantidades({ ...quantidades, [produto.id]: v })}
                 />
               </li>
@@ -277,7 +290,11 @@ export default function NovoPedido() {
         <p className="text-sm text-stone-700">Volume do pedido</p>
         <p className="text-2xl font-bold tabular-nums">{kgTexto(kg)}</p>
 
-        {kg > 0 && !ehMultiploValido(kg) && (
+        {erroCaixa && (
+          <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{erroCaixa}</p>
+        )}
+
+        {!erroCaixa && kg > 0 && !ehMultiploValido(kg) && (
           <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
             {(() => {
               const { abaixo, acima } = kgMaisProximos(kg)
@@ -410,6 +427,7 @@ export default function NovoPedido() {
             !clienteId ||
             itensInput.length === 0 ||
             !ehMultiploValido(kg) ||
+            erroCaixa !== null ||
             erroPrecoManual !== null ||
             criar.isPending
           }
