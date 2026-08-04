@@ -18,7 +18,7 @@ const ROTULO_CONFIANCA: Record<LinhaCliente['previsao']['confianca'], string> = 
   alta: 'confiança alta',
 }
 
-const SINAIS_DE_ACAO: Sinal[] = ['na_hora', 'em_risco', 'caindo']
+export const SINAIS_DE_ACAO: Sinal[] = ['na_hora', 'em_risco', 'caindo']
 
 export function BlocoInsight({ linhas }: { linhas: LinhaCliente[] }) {
   // um cliente com cadência declarada aparece como `novo` E `na_hora` ao mesmo tempo:
@@ -32,7 +32,7 @@ export function BlocoInsight({ linhas }: { linhas: LinhaCliente[] }) {
     <section className="space-y-3">
       <div>
         <h2 className="mb-1 font-semibold">Quem ligar agora</h2>
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-700">
           Ordenado pelos mais atrasados. A previsão vem do histórico de pedidos.
         </p>
       </div>
@@ -46,13 +46,13 @@ export function BlocoInsight({ linhas }: { linhas: LinhaCliente[] }) {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-medium">{linha.clienteNome}</p>
-                  <p className="text-sm text-stone-500">
+                  <p className="text-sm text-stone-700">
                     Última compra {dataCurta(linha.ultimaCompra)} ·{' '}
                     {linha.kgUltimo.toLocaleString('pt-BR')} kg
                     {linha.previsao.cadenciaDias !== null &&
                       ` · a cada ${linha.previsao.cadenciaDias} dias`}
                   </p>
-                  <p className="text-xs text-stone-400">
+                  <p className="text-xs text-stone-600">
                     {ROTULO_CONFIANCA[linha.previsao.confianca]}
                     {linha.previsao.origemCadencia === 'declarada' && ' · cadência informada'}
                     {linha.previsao.qtdSugeridaKg !== null &&
@@ -76,7 +76,7 @@ export function BlocoInsight({ linhas }: { linhas: LinhaCliente[] }) {
       )}
 
       {novos.length > 0 && (
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-700">
           {novos.length} cliente(s) sem histórico suficiente para prever:{' '}
           {novos.map((linha) => linha.clienteNome).join(', ')}.
         </p>

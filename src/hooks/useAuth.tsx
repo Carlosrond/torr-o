@@ -8,6 +8,7 @@ interface Auth {
   sessao: Session | null
   usuarioId: string | null
   papel: Papel | null
+  nome: string | null
   carregando: boolean
   entrar: (email: string, senha: string) => Promise<void>
   sair: () => Promise<void>
@@ -18,6 +19,7 @@ const Contexto = createContext<Auth | null>(null)
 export function ProvedorAuth({ children }: { children: ReactNode }) {
   const [sessao, setSessao] = useState<Session | null>(null)
   const [papel, setPapel] = useState<Papel | null>(null)
+  const [nome, setNome] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
 
   useEffect(() => {
@@ -34,20 +36,23 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!sessao) {
       setPapel(null)
+      setNome(null)
       return
     }
     supabase
       .from('profiles')
-      .select('papel')
+      .select('papel, nome')
       .eq('id', sessao.user.id)
       .single()
       .then(({ data, error }) => {
         // falha de rede nao pode rebaixar admin em silencio -- fica null (RotaProtegida trata como carregando)
         if (error) {
           setPapel(null)
+          setNome(null)
           return
         }
         setPapel((data?.papel as Papel) ?? 'vendedor')
+        setNome(data?.nome ?? null)
       })
   }, [sessao])
 
@@ -55,6 +60,7 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
     sessao,
     usuarioId: sessao?.user.id ?? null,
     papel,
+    nome,
     carregando,
     entrar: async (email, senha) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password: senha })

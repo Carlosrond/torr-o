@@ -10,16 +10,24 @@ export default function Mais() {
 
       <ul className="mt-4 divide-y divide-stone-200 overflow-hidden rounded-xl bg-white shadow">
         <li>
+          <Link to="/painel" className="block min-h-[44px] p-4">
+            <p className="font-medium">Painel</p>
+            <p className="text-sm text-stone-700">
+              A análise completa: vendas, clientes, prazo e mix.
+            </p>
+          </Link>
+        </li>
+        <li>
           <Link to="/comissao" className="block min-h-[44px] p-4">
             <p className="font-medium">Comissão</p>
-            <p className="text-sm text-stone-500">Veja o que já fechou e o que ainda falta apurar.</p>
+            <p className="text-sm text-stone-700">Veja o que já fechou e o que ainda falta apurar.</p>
           </Link>
         </li>
         {papel === 'admin' && (
           <li>
             <Link to="/precos" className="block min-h-[44px] p-4">
               <p className="font-medium">Preços</p>
-              <p className="text-sm text-stone-500">Tabela de preços por faixa de kg.</p>
+              <p className="text-sm text-stone-700">Tabela de preços por faixa de kg.</p>
             </Link>
           </li>
         )}
@@ -27,7 +35,7 @@ export default function Mais() {
           <li>
             <Link to="/equipe" className="block min-h-[44px] p-4">
               <p className="font-medium">Equipe</p>
-              <p className="text-sm text-stone-500">Vendedores e administradores do time.</p>
+              <p className="text-sm text-stone-700">Vendedores e administradores do time.</p>
             </Link>
           </li>
         )}

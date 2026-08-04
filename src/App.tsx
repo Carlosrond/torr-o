@@ -8,6 +8,7 @@ import Comissao from '@/paginas/Comissao'
 import Consignado from '@/paginas/Consignado'
 import Equipe from '@/paginas/Equipe'
 import FichaCliente from '@/paginas/FichaCliente'
+import Hoje from '@/paginas/Hoje'
 import Login from '@/paginas/Login'
 import Mais from '@/paginas/Mais'
 import NovoPedido from '@/paginas/NovoPedido'
@@ -32,7 +33,8 @@ export default function App() {
                 </RotaProtegida>
               }
             >
-              <Route path="/" element={<NovoPedido />} />
+              <Route path="/" element={<Hoje />} />
+              <Route path="/pedido" element={<NovoPedido />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/clientes/:id" element={<FichaCliente />} />
               <Route path="/consignado" element={<Consignado />} />
