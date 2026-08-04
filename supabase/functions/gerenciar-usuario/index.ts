@@ -7,7 +7,12 @@ const CORS = {
   'Access-Control-Allow-Origin': '*',
   // supabase-js manda x-client-info e apikey em toda chamada: sem eles na lista,
   // o preflight falha e o navegador nem chega a invocar a função.
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // Esta é a lista canônica do próprio SDK (SUPABASE_HEADERS em
+  // @supabase/supabase-js/cors) + x-region, que o functions-js manda quando há região
+  // fixada. x-retry-count/x-region não são usados por functions.invoke hoje, mas liberar
+  // agora custa nada e evita repetir o bug de preflight que derrubou o cadastro de pessoa.
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-retry-count, x-region',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 

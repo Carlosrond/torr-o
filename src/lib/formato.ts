@@ -8,6 +8,16 @@ export function kgTexto(valor: number): string {
   return `${valor.toLocaleString('pt-BR')} kg`
 }
 
+/** Número solto na tela (dias, percentual): vírgula decimal, senão sai "26.74 dias" num app PT-BR. */
+export function numeroTexto(valor: number): string {
+  return valor.toLocaleString('pt-BR')
+}
+
+/** "1 dia" / "2 dias" — concordância, com o número já em PT-BR. */
+export function diasTexto(valor: number): string {
+  return `${numeroTexto(valor)} ${Math.abs(valor) === 1 ? 'dia' : 'dias'}`
+}
+
 /** dd/mm — sem ano, para exibição dentro de uma janela/série onde o ano é óbvio pelo contexto. */
 export function dataCurta(iso: string): string {
   return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`

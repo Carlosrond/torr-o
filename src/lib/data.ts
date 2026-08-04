@@ -31,7 +31,26 @@ export function segundaDaSemana(iso: string): string {
   return addDias(iso, -recuo)
 }
 
-/** Data de hoje. Só para a UI — função de cálculo recebe `hoje` por parâmetro. */
-export function hojeIso(): string {
-  return paraIso(new Date())
+/**
+ * Fuso da operação. A torrefação e os clientes estão na Bahia (UTC-3, sem horário de
+ * verão): o "hoje" do negócio é o calendário da Bahia, não o do relógio UTC nem o do
+ * aparelho. Sem isso, pedido lançado depois das 21h nasce com a data de amanhã —
+ * cai no mês errado da comissão e imprime data errada no romaneio.
+ */
+const FUSO_OPERACAO = 'America/Bahia'
+
+// en-CA formata exatamente YYYY-MM-DD, que é o formato ISO usado em todo o app
+const FORMATO_DIA = new Intl.DateTimeFormat('en-CA', {
+  timeZone: FUSO_OPERACAO,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/**
+ * Data de hoje no fuso da operação. Só para a UI — função de cálculo recebe `hoje`
+ * por parâmetro. `agora` existe para o teste poder fixar o instante.
+ */
+export function hojeIso(agora: Date = new Date()): string {
+  return FORMATO_DIA.format(agora)
 }

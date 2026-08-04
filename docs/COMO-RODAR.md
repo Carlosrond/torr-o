@@ -32,6 +32,11 @@ As migrations em `supabase/migrations/` já estão aplicadas:
 - `20260803120000_init_torrao.sql` — 6 tabelas, enums, RLS por papel
 - `20260803130000_rpc_criar_pedido.sql` — pedido + itens + movimento de consignado numa transação
 
+⚠️ **Pendente de aplicar:** `20260804210000_rls_ativo.sql` — faz `profiles.ativo` valer na RLS
+(hoje desativar alguém na tela de Equipe não tira acesso nenhum). Aplicar pelo SQL Editor do
+dashboard ou pela Management API. Enquanto não for aplicada, para cortar o acesso de alguém
+troque a senha da conta no dashboard.
+
 A tabela de preços foi semeada com **faixas de exemplo** (`supabase/seed.sql`). Os preços reais você cadastra na tela **Preços** — cada salvamento cria uma versão nova, então o histórico de pedido nunca muda de valor.
 
 ## Variáveis de ambiente

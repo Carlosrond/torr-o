@@ -73,8 +73,16 @@ function exportarCsv(
   const link = document.createElement('a')
   link.href = url
   link.download = `pedidos-${inicio}-a-${fim}.csv`
+  // a âncora precisa estar no documento (Firefox ignora click() em nó solto) e a URL só
+  // pode ser revogada depois que o download começou -- revogar na mesma linha do click
+  // cancela o download em alguns navegadores
+  link.style.display = 'none'
+  document.body.appendChild(link)
   link.click()
-  URL.revokeObjectURL(url)
+  setTimeout(() => {
+    link.remove()
+    URL.revokeObjectURL(url)
+  }, 1000)
 }
 
 export default function Relatorio() {

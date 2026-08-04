@@ -5,7 +5,7 @@ import { usePendenciasConsignado } from '@/hooks/usePendenciasConsignado'
 import { useProdutos } from '@/hooks/useProdutos'
 import { DIAS_ALERTA_CONSIGNADO, situacaoPeloPrazo, type SituacaoConsignado } from '@/lib/consignado'
 import { hojeIso } from '@/lib/data'
-import { dataLonga, kgTexto } from '@/lib/formato'
+import { dataLonga, diasTexto, kgTexto } from '@/lib/formato'
 import { SKUS, type Produto, type Sku } from '@/lib/tipos'
 
 /** Nome do produto pelo sku legado, com fallback pro rótulo do sku. */
@@ -29,12 +29,11 @@ const CLASSE_SELO: Record<SituacaoConsignado, string> = {
 
 function textoSelo(situacao: SituacaoConsignado, diasParaPrazo: number | null): string {
   if (situacao === 'vencido') {
-    const n = Math.abs(diasParaPrazo ?? 0)
-    return `Vencido há ${n} dia${n === 1 ? '' : 's'}`
+    return `Vencido há ${diasTexto(Math.abs(diasParaPrazo ?? 0))}`
   }
   if (situacao === 'vence_em_breve') {
     if (diasParaPrazo === 0) return 'Vence hoje'
-    return `Vence em ${diasParaPrazo} dia${diasParaPrazo === 1 ? '' : 's'}`
+    return `Vence em ${diasTexto(diasParaPrazo ?? 0)}`
   }
   if (situacao === 'em_dia') return 'Em dia'
   return 'Sem prazo'

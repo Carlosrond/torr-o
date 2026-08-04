@@ -1,6 +1,6 @@
 import { Cartao } from './Cartao'
 import { Vazio } from './Estado'
-import { dataCurta, reais } from '@/lib/formato'
+import { dataCurta, diasTexto, numeroTexto, reais } from '@/lib/formato'
 import type { PedidoMetrica } from '@/lib/metricas-venda'
 import { arredondar2 } from '@/lib/numero'
 import { caixaPrevistoPorSemana, prazoMedioDias, prazoMedioPonderado } from '@/lib/prazo'
@@ -67,12 +67,12 @@ export function BlocoPrazo({ pedidos }: { pedidos: PedidoMetrica[] }) {
       <div className="grid grid-cols-2 gap-3">
         <Cartao
           titulo="Prazo médio"
-          valor={prazoMedio === null ? '—' : `${prazoMedio} dias`}
+          valor={prazoMedio === null ? '—' : diasTexto(prazoMedio)}
           detalhe="ponderado por R$"
         />
         <Cartao
           titulo="Consignado"
-          valor={`${condicoes.find((c) => c.condicao === 'consignado')?.percentual ?? 0}%`}
+          valor={`${numeroTexto(condicoes.find((c) => c.condicao === 'consignado')?.percentual ?? 0)}%`}
           detalhe="da receita — fora da previsão de caixa"
         />
       </div>
@@ -84,7 +84,7 @@ export function BlocoPrazo({ pedidos }: { pedidos: PedidoMetrica[] }) {
             <li key={item.condicao} className="flex justify-between p-3 text-sm">
               <span>{ROTULO_CONDICAO[item.condicao]}</span>
               <span className="tabular-nums">
-                {item.percentual}% · {reais(item.valor)}
+                {numeroTexto(item.percentual)}% · {reais(item.valor)}
               </span>
             </li>
           ))}
@@ -127,7 +127,7 @@ export function BlocoPrazo({ pedidos }: { pedidos: PedidoMetrica[] }) {
               <li key={cliente.nome} className="flex justify-between p-3 text-sm">
                 <span>{cliente.nome}</span>
                 <span className="tabular-nums">
-                  {cliente.dias} dias · {reais(cliente.valor)}
+                  {diasTexto(cliente.dias)} · {reais(cliente.valor)}
                 </span>
               </li>
             ))}

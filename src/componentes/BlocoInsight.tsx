@@ -1,5 +1,5 @@
 import { Vazio } from './Estado'
-import { dataCurta, kgTexto } from '@/lib/formato'
+import { dataCurta, diasTexto, kgTexto } from '@/lib/formato'
 import type { LinhaCliente } from '@/lib/insights'
 import type { Sinal } from '@/lib/recompra'
 
@@ -49,7 +49,7 @@ export function BlocoInsight({ linhas }: { linhas: LinhaCliente[] }) {
                   <p className="text-sm tabular-nums text-stone-700">
                     Última compra {dataCurta(linha.ultimaCompra)} · {kgTexto(linha.kgUltimo)}
                     {linha.previsao.cadenciaDias !== null &&
-                      ` · a cada ${linha.previsao.cadenciaDias} dias`}
+                      ` · a cada ${diasTexto(linha.previsao.cadenciaDias)}`}
                   </p>
                   <p className="text-xs tabular-nums text-stone-600">
                     {ROTULO_CONFIANCA[linha.previsao.confianca]}

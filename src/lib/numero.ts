@@ -26,3 +26,20 @@ export function paraNumero(texto: string): number {
   const valor = Number(normalizado)
   return Number.isNaN(valor) ? NaN : valor
 }
+
+/**
+ * Preço digitado à mão (ajuste manual no pedido). Campo vazio = não há ajuste.
+ * Texto que não é preço devolve erro em PT-BR — nunca cai calado no preço de tabela,
+ * senão o vendedor acha que deu desconto e o pedido salva no valor cheio.
+ */
+export function precoDigitado(texto: string): { valor: number | null; erro: string | null } {
+  if (texto.trim() === '') return { valor: null, erro: null }
+  const valor = paraNumero(texto)
+  if (!Number.isFinite(valor)) {
+    return { valor: null, erro: `"${texto.trim()}" não é um preço. Use vírgula ou ponto, por exemplo 10,50.` }
+  }
+  if (valor <= 0) {
+    return { valor: null, erro: 'O preço ajustado precisa ser maior que zero.' }
+  }
+  return { valor: arredondar2(valor), erro: null }
+}

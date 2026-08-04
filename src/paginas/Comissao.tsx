@@ -6,7 +6,7 @@ import { useEquipe } from '@/hooks/useEquipe'
 import { useAuth } from '@/hooks/useAuth'
 import { comissaoDaBase, limitesDoMes, percentualVigente, resumoComissao } from '@/lib/comissao'
 import { addDias, hojeIso } from '@/lib/data'
-import { dataCurta, reais } from '@/lib/formato'
+import { dataCurta, numeroTexto, reais } from '@/lib/formato'
 
 const ROTULO_ORIGEM = { pedido: 'Pedido', consignado: 'Consignado' } as const
 
@@ -92,7 +92,7 @@ export default function Comissao() {
         <>
           <div className="mb-4 grid grid-cols-2 gap-3">
             <Cartao titulo="Base total" valor={reais(resumo.baseTotal)} />
-            <Cartao titulo="Percentual vigente" valor={`${percentualHoje}%`} />
+            <Cartao titulo="Percentual vigente" valor={`${percentualHoje === null ? "—" : numeroTexto(percentualHoje)}%`} />
             <Cartao titulo="Comissão total" valor={reais(resumo.comissaoTotal)} alerta />
             <Cartao
               titulo="Por origem (pedido / consignado)"

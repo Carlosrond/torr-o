@@ -7,7 +7,7 @@ import { usePrecosProdutos } from '@/hooks/usePrecos'
 import { useProdutos } from '@/hooks/useProdutos'
 import { addDias, hojeIso } from '@/lib/data'
 import { dataLonga, kgTexto, reais } from '@/lib/formato'
-import { arredondar2, paraNumero } from '@/lib/numero'
+import { arredondar2, precoDigitado } from '@/lib/numero'
 import {
   ehMultiploValido,
   kgMaisProximos,
@@ -129,13 +129,13 @@ export default function NovoPedido() {
     try {
       const daTabela = precificarProdutos(itensInput, produtos, faixas, data)
       const itens: ItemProdutoPrecificado[] = daTabela.map((item) => {
-        const manual = paraNumero(precosManuais[item.produtoId] ?? '')
-        if (!ajustando || !manual || manual <= 0) return item
-        const precoUnit = arredondar2(manual)
+        if (!ajustando) return item
+        const { valor } = precoDigitado(precosManuais[item.produtoId] ?? '')
+        if (valor === null) return item
         return {
           ...item,
-          precoUnit,
-          subtotal: arredondar2(precoUnit * item.qtdPacotes),
+          precoUnit: valor,
+          subtotal: arredondar2(valor * item.qtdPacotes),
         }
       })
       return { itens, total: totalPedidoProdutos(itens, produtos), tabela: daTabela }
@@ -146,6 +146,13 @@ export default function NovoPedido() {
   }, [faixas, produtos, JSON.stringify(itensInput), data, ajustando, JSON.stringify(precosManuais)])
 
   const kg = produtos ? kgTotalProdutos(itensInput, produtos) : 0
+
+  // preço digitado que não é preço não pode passar calado: trava o salvamento e diz o quê
+  const erroPrecoManual = ajustando
+    ? (itensInput
+        .map((item) => precoDigitado(precosManuais[item.produtoId] ?? '').erro)
+        .find((erro) => erro !== null) ?? null)
+    : null
 
   // oportunidade pelo produto de MAIOR PESO presente no pedido — é o que mais pesa na faixa
   const produtoDeMaiorPeso = useMemo(() => {
@@ -168,7 +175,7 @@ export default function NovoPedido() {
 
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
-    if (!calculo || 'erro' in calculo) return
+    if (!calculo || 'erro' in calculo || erroPrecoManual) return
     const id = await criar.mutateAsync({
       clienteId,
       data,
@@ -345,19 +352,24 @@ export default function NovoPedido() {
           {itensInput.length === 0 ? (
             <p className="text-sm text-amber-900">Escolha a quantidade de um produto para ajustar o preço.</p>
           ) : (
-            itensInput.map((item) => (
-              <label key={item.produtoId} className="block text-sm">
-                Preço do {nomeProduto(item.produtoId)}
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={precosManuais[item.produtoId] ?? ''}
-                  onChange={(e) => setPrecosManuais({ ...precosManuais, [item.produtoId]: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
-                />
-              </label>
-            ))
+            itensInput.map((item) => {
+              const { erro } = precoDigitado(precosManuais[item.produtoId] ?? '')
+              return (
+                <label key={item.produtoId} className="block text-sm">
+                  Preço do {nomeProduto(item.produtoId)}
+                  {/* texto + inputMode decimal (não type=number): é assim que o resto do app
+                      aceita vírgula, que é como se digita preço no Brasil */}
+                  <input
+                    inputMode="decimal"
+                    placeholder="10,50"
+                    value={precosManuais[item.produtoId] ?? ''}
+                    onChange={(e) => setPrecosManuais({ ...precosManuais, [item.produtoId]: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
+                  />
+                  {erro && <span className="mt-1 block text-red-700">{erro}</span>}
+                </label>
+              )
+            })
           )}
         </div>
       )}
@@ -394,7 +406,13 @@ export default function NovoPedido() {
       ) : (
         <button
           type="submit"
-          disabled={!clienteId || itensInput.length === 0 || !ehMultiploValido(kg) || criar.isPending}
+          disabled={
+            !clienteId ||
+            itensInput.length === 0 ||
+            !ehMultiploValido(kg) ||
+            erroPrecoManual !== null ||
+            criar.isPending
+          }
           className="w-full rounded-lg bg-amber-800 py-4 text-lg font-semibold text-white disabled:opacity-50"
         >
           {criar.isPending ? 'Salvando…' : 'Salvar pedido'}

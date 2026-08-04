@@ -8,11 +8,16 @@ import { useCancelarPedido, usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { useProdutos } from '@/hooks/useProdutos'
 import { hojeIso } from '@/lib/data'
-import { diasParado, previsaoReposicao, saldoKg, saldoPorSku } from '@/lib/consignado'
-import { dataLonga, kgTexto, reais } from '@/lib/formato'
+import {
+  diasParado,
+  previsaoReposicao,
+  saldoKg,
+  saldoPorSku,
+  valorSaldoConsignado,
+} from '@/lib/consignado'
+import { dataLonga, diasTexto, kgTexto, reais } from '@/lib/formato'
 import { porCliente } from '@/lib/insights'
 import { paraNumero } from '@/lib/numero'
-import { faixaVigente } from '@/lib/preco'
 import { oportunidadeFaixa } from '@/lib/recompra'
 import { prazoMedioPonderado } from '@/lib/prazo'
 import { KG_POR_SKU, ROTULO_CANAL, ROTULO_CONDICAO, SKUS, type Produto, type Sku } from '@/lib/tipos'
@@ -37,6 +42,7 @@ export default function FichaCliente() {
   const [dataApuracao, setDataApuracao] = useState(hojeIso())
   const [tipoApuracao, setTipoApuracao] = useState<'venda_apurada' | 'retorno'>('venda_apurada')
   const [erroApuracao, setErroApuracao] = useState<string | null>(null)
+  const [erroCancelar, setErroCancelar] = useState<string | null>(null)
 
   const hoje = hojeIso()
   const cliente = (clientes ?? []).find((c) => c.id === id) ?? null
@@ -86,16 +92,9 @@ export default function FichaCliente() {
   const diasParadoConsignado = diasParado(movs, hoje)
   const reposicaoConsignado = previsaoReposicao(movs, hoje)
 
-  // valor do saldo consignado em R$: preco de tabela do SKU hoje (faixa de 1 pacote), sem desconto de
-  // volume -- se algum SKU do saldo nao tiver faixa aplicavel na tabela, nao inventa valor (so kg)
-  const faixasDosSaldos = skusComSaldo.map((sku) => ({
-    sku,
-    faixa: faixas ? faixaVigente(faixas, sku, KG_POR_SKU[sku], hoje) : null,
-  }))
-  const valorSaldoDisponivel = faixasDosSaldos.length > 0 && faixasDosSaldos.every((f) => f.faixa !== null)
-  const valorSaldoConsignado = valorSaldoDisponivel
-    ? faixasDosSaldos.reduce((soma, f) => soma + f.faixa!.precoUnit * saldo[f.sku], 0)
-    : null
+  // valor do saldo consignado em R$ pelo preco de tabela de hoje -- se algum SKU do saldo
+  // nao tiver faixa vigente, nao inventa valor (mostra so o kg)
+  const valorDoSaldo = faixas ? valorSaldoConsignado(faixas, saldo, hoje) : null
 
   async function registrarApuracao(evento: React.FormEvent) {
     evento.preventDefault()
@@ -126,7 +125,13 @@ export default function FichaCliente() {
 
   async function cancelarPedidoLancado(pedidoId: string) {
     if (!window.confirm('Cancelar esse pedido? Ele sai do painel e do histórico de venda.')) return
-    await cancelar.mutateAsync(pedidoId)
+    setErroCancelar(null)
+    try {
+      await cancelar.mutateAsync(pedidoId)
+    } catch (e) {
+      // sem isso o cancelamento falhava calado: o pedido continuava na lista e ninguém sabia
+      setErroCancelar(e instanceof Error ? e.message : 'Não foi possível cancelar o pedido.')
+    }
   }
 
   return (
@@ -145,7 +150,7 @@ export default function FichaCliente() {
       <div className="grid grid-cols-2 gap-3">
         <Cartao
           titulo="Cadência"
-          valor={linha?.previsao.cadenciaDias === null || !linha ? '—' : `${linha.previsao.cadenciaDias} dias`}
+          valor={linha?.previsao.cadenciaDias === null || !linha ? '—' : diasTexto(linha.previsao.cadenciaDias)}
           detalhe={linha?.previsao.origemCadencia === 'declarada' ? 'informada' : 'calculada'}
         />
         <Cartao
@@ -157,7 +162,7 @@ export default function FichaCliente() {
           }
           detalhe={
             linha && linha.previsao.atrasoDias !== null && linha.previsao.atrasoDias > 0
-              ? `${linha.previsao.atrasoDias} dias de atraso`
+              ? `${diasTexto(linha.previsao.atrasoDias)} de atraso`
               : undefined
           }
           alerta={!!linha && (linha.previsao.atrasoDias ?? -1) > 0}
@@ -172,7 +177,7 @@ export default function FichaCliente() {
         />
         <Cartao
           titulo="Prazo médio"
-          valor={prazoMedio === null ? '—' : `${prazoMedio} dias`}
+          valor={prazoMedio === null ? '—' : diasTexto(prazoMedio)}
           detalhe="ponderado por R$"
         />
       </div>
@@ -199,11 +204,11 @@ export default function FichaCliente() {
             <Cartao
               titulo="Saldo no cliente"
               valor={kgTexto(saldoKg(movs))}
-              detalhe={valorSaldoConsignado !== null ? reais(valorSaldoConsignado) : undefined}
+              detalhe={valorDoSaldo !== null ? reais(valorDoSaldo) : undefined}
             />
             <Cartao
               titulo="Parado há"
-              valor={diasParadoConsignado === null ? '—' : `${diasParadoConsignado} dias`}
+              valor={diasParadoConsignado === null ? '—' : diasTexto(diasParadoConsignado)}
               alerta={(diasParadoConsignado ?? 0) > 30}
             />
             <Cartao
@@ -268,6 +273,11 @@ export default function FichaCliente() {
 
       <section>
         <h2 className="mb-2 font-semibold">Histórico de pedidos</h2>
+        {erroCancelar && (
+          <p className="mb-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            O pedido não foi cancelado: {erroCancelar}
+          </p>
+        )}
         {doCliente.length === 0 ? (
           <Vazio mensagem="Esse cliente ainda não comprou. Lance o primeiro pedido em Pedido." />
         ) : (

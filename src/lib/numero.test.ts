@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arredondar2, paraNumero } from './numero'
+import { arredondar2, paraNumero, precoDigitado } from './numero'
 
 describe('arredondar2', () => {
   it('arredonda para 2 casas', () => {
@@ -50,5 +50,34 @@ describe('paraNumero', () => {
 
   it('aceita negativo', () => {
     expect(paraNumero('-5,5')).toBe(-5.5)
+  })
+})
+
+describe('precoDigitado', () => {
+  it('aceita virgula decimal, que e como se digita preco no Brasil', () => {
+    expect(precoDigitado('11,00')).toEqual({ valor: 11, erro: null })
+    expect(precoDigitado('10,50')).toEqual({ valor: 10.5, erro: null })
+    expect(precoDigitado('1.234,56')).toEqual({ valor: 1234.56, erro: null })
+  })
+
+  it('campo vazio nao e erro: significa "sem ajuste"', () => {
+    expect(precoDigitado('')).toEqual({ valor: null, erro: null })
+    expect(precoDigitado('   ')).toEqual({ valor: null, erro: null })
+  })
+
+  it('texto que nao e preco devolve erro em vez de cair calado na tabela', () => {
+    // era aqui que o pedido salvava no preco cheio achando que tinha desconto
+    expect(precoDigitado('abc').valor).toBeNull()
+    expect(precoDigitado('abc').erro).toContain('não é um preço')
+    expect(precoDigitado('11,0,0').erro).toContain('não é um preço')
+  })
+
+  it('recusa zero e negativo', () => {
+    expect(precoDigitado('0').erro).toContain('maior que zero')
+    expect(precoDigitado('-5').erro).toContain('maior que zero')
+  })
+
+  it('arredonda para centavo', () => {
+    expect(precoDigitado('10,999')).toEqual({ valor: 11, erro: null })
   })
 })

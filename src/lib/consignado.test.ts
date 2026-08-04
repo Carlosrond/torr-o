@@ -7,9 +7,11 @@ import {
   saldoKg,
   saldoPorSku,
   situacaoPeloPrazo,
+  valorSaldoConsignado,
   vendaApuradaDiariaKg,
   type MovConsignado,
 } from './consignado'
+import type { FaixaPreco } from './tipos'
 
 /** Entrega de 40 pacotes de 500g (20 kg) e 10 kg já apurados em 20 dias. */
 const MOVS: MovConsignado[] = [
@@ -217,5 +219,37 @@ describe('pendenciaConsignado', () => {
     expect(pendencia.saldoKg).toBe(0)
     expect(pendencia.diasParado).toBeNull()
     expect(pendencia.previsaoAcabar).toBeNull()
+  })
+})
+
+describe('valorSaldoConsignado', () => {
+  // tabela como a real: faixa comeca em 5 kg (o pedido e sempre multiplo de 5)
+  const faixas: FaixaPreco[] = [
+    { id: '1', sku: '250g', kgMin: 5, kgMax: 10, precoUnit: 11, vigenteDesde: '2026-08-01' },
+    { id: '2', sku: '250g', kgMin: 15, kgMax: null, precoUnit: 10, vigenteDesde: '2026-08-01' },
+    { id: '3', sku: '500g', kgMin: 5, kgMax: 10, precoUnit: 22, vigenteDesde: '2026-08-01' },
+    { id: '4', sku: '500g', kgMin: 15, kgMax: null, precoUnit: 20, vigenteDesde: '2026-08-01' },
+  ]
+
+  it('valoriza o saldo pela faixa do menor volume, nao pelo peso do pacote', () => {
+    // a regressao: perguntar a faixa por 0,25 kg nunca acha faixa (a tabela comeca em 5 kg)
+    // e o valor em R$ nunca aparecia na tela
+    expect(valorSaldoConsignado(faixas, { '250g': 10, '500g': 0 }, '2026-08-10')).toBe(110)
+    expect(valorSaldoConsignado(faixas, { '250g': 4, '500g': 2 }, '2026-08-10')).toBe(88)
+  })
+
+  it('sem saldo nenhum devolve null', () => {
+    expect(valorSaldoConsignado(faixas, { '250g': 0, '500g': 0 }, '2026-08-10')).toBeNull()
+  })
+
+  it('nao inventa valor quando falta faixa vigente para um sku com saldo', () => {
+    const soUmSku = faixas.filter((f) => f.sku === '250g')
+    expect(valorSaldoConsignado(soUmSku, { '250g': 4, '500g': 2 }, '2026-08-10')).toBeNull()
+    // tabela que ainda nao vigia na data tambem nao vale
+    expect(valorSaldoConsignado(faixas, { '250g': 4, '500g': 0 }, '2026-07-31')).toBeNull()
+  })
+
+  it('ignora saldo negativo (lancamento inconsistente) sem estourar', () => {
+    expect(valorSaldoConsignado(faixas, { '250g': -3, '500g': 2 }, '2026-08-10')).toBe(44)
   })
 })

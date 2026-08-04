@@ -1,6 +1,7 @@
 import { addDias, diffDias } from './data'
 import { arredondar2 } from './numero'
-import { KG_POR_SKU, SKUS, type Sku, type TipoMovConsignado } from './tipos'
+import { faixaVigente, MULTIPLO_KG } from './preco'
+import { KG_POR_SKU, SKUS, type FaixaPreco, type Sku, type TipoMovConsignado } from './tipos'
 
 export interface MovConsignado {
   sku: Sku
@@ -72,6 +73,30 @@ export function previsaoReposicao(movs: MovConsignado[], hoje: string): string |
   const dias = diasRestantes(movs, hoje)
   if (dias === null) return null
   return addDias(hoje, dias)
+}
+
+/**
+ * Valor de tabela do café que está no cliente. A faixa é escolhida pelo MENOR volume de
+ * pedido (MULTIPLO_KG) porque a tabela é indexada pelo kg do PEDIDO INTEIRO e começa em
+ * 5 kg — perguntar a faixa pelo peso de um pacote (0,25 kg) não acha faixa nenhuma e o
+ * valor nunca aparecia na tela. Sem faixa vigente para algum SKU com saldo devolve null:
+ * melhor mostrar só o kg do que inventar dinheiro.
+ */
+export function valorSaldoConsignado(
+  faixas: FaixaPreco[],
+  saldo: Record<Sku, number>,
+  hoje: string,
+): number | null {
+  const comSaldo = SKUS.filter((sku) => saldo[sku] > 0)
+  if (comSaldo.length === 0) return null
+
+  let total = 0
+  for (const sku of comSaldo) {
+    const faixa = faixaVigente(faixas, sku, MULTIPLO_KG, hoje)
+    if (faixa === null) return null
+    total += faixa.precoUnit * saldo[sku]
+  }
+  return arredondar2(total)
 }
 
 export type SituacaoConsignado = 'em_dia' | 'vence_em_breve' | 'vencido' | 'sem_prazo'

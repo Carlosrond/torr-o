@@ -8,7 +8,7 @@ import { usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { useProdutos } from '@/hooks/useProdutos'
 import { addDias, hojeIso } from '@/lib/data'
-import { dataCurta, kgTexto, reais } from '@/lib/formato'
+import { dataCurta, kgTexto, numeroTexto, reais } from '@/lib/formato'
 import { porCliente } from '@/lib/insights'
 import {
   apenasValidos,
@@ -119,7 +119,7 @@ export default function Painel() {
             detalhe={
               preco
                 ? preco.descontoPercentual > 0
-                  ? `${preco.descontoPercentual}% abaixo da tabela`
+                  ? `${numeroTexto(preco.descontoPercentual)}% abaixo da tabela`
                   : 'no preço de tabela'
                 : undefined
             }

@@ -3,6 +3,7 @@ import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { useAuth } from '@/hooks/useAuth'
 import { PERCENTUAL_PADRAO, percentualVigente } from '@/lib/comissao'
 import { hojeIso } from '@/lib/data'
+import { numeroTexto } from '@/lib/formato'
 import { paraNumero } from '@/lib/numero'
 import {
   useAtualizarMembro,
@@ -28,7 +29,7 @@ function LinhaPercentual({ membro }: { membro: MembroEquipe }) {
   return (
     <p className="text-sm text-stone-700">
       {ROTULO_PAPEL[membro.papel]} · {membro.clientesAtivos} cliente(s) ativo(s)
-      {percentual !== null && ` · comissão ${percentual}%`}
+      {percentual !== null && ` · comissão ${numeroTexto(percentual)}%`}
     </p>
   )
 }
@@ -45,17 +46,22 @@ export default function Equipe() {
   const [editando, setEditando] = useState<MembroEquipe | null>(null)
   const [edicao, setEdicao] = useState({ nome: '', papel: 'vendedor' as PapelUsuario, ativo: true, senha: '' })
   const [comissaoTexto, setComissaoTexto] = useState(String(PERCENTUAL_PADRAO))
+  const [erroEdicao, setErroEdicao] = useState<string | null>(null)
 
   const { data: regrasDoEditando } = useRegrasComissao(editando?.id ?? null)
 
   async function enviarNovo(evento: React.FormEvent) {
     evento.preventDefault()
-    await criar.mutateAsync({
-      email: novo.email.trim(),
-      nome: novo.nome.trim(),
-      papel: novo.papel,
-      senha: novo.senha,
-    })
+    try {
+      await criar.mutateAsync({
+        email: novo.email.trim(),
+        nome: novo.nome.trim(),
+        papel: novo.papel,
+        senha: novo.senha,
+      })
+    } catch {
+      return // a mensagem já aparece por criar.error; o formulário fica aberto com o que foi digitado
+    }
     setNovo(NOVO_VAZIO)
     setAberto(false)
   }
@@ -64,6 +70,7 @@ export default function Equipe() {
     setEditando(membro)
     setEdicao({ nome: membro.nome, papel: membro.papel, ativo: membro.ativo, senha: '' })
     setComissaoTexto(String(PERCENTUAL_PADRAO))
+    setErroEdicao(null)
   }
 
   // regra vigente da pessoa aberta na edição chega depois (query separada) -- assim que
@@ -77,20 +84,34 @@ export default function Equipe() {
   async function enviarEdicao(evento: React.FormEvent) {
     evento.preventDefault()
     if (!editando) return
+    setErroEdicao(null)
+
+    // antes isto era `return` calado: percentual inválido não salvava nada e a tela não dizia nada
     const percentual = paraNumero(comissaoTexto)
-    if (Number.isNaN(percentual) || percentual < 0 || percentual > 100) return
-    await atualizar.mutateAsync({
-      id: editando.id,
-      nome: edicao.nome.trim(),
-      papel: edicao.papel,
-      ativo: edicao.ativo,
-      ...(edicao.senha ? { senha: edicao.senha } : {}),
-    })
-    await salvarComissao.mutateAsync({
-      vendedorId: editando.id,
-      percentual,
-      vigenteDesde: hojeIso(),
-    })
+    if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) {
+      setErroEdicao('A comissão precisa ser um número entre 0 e 100. Use vírgula, por exemplo 2,5.')
+      return
+    }
+
+    try {
+      await atualizar.mutateAsync({
+        id: editando.id,
+        nome: edicao.nome.trim(),
+        papel: edicao.papel,
+        ativo: edicao.ativo,
+        ...(edicao.senha ? { senha: edicao.senha } : {}),
+      })
+      // a comissão é uma segunda gravação: se falhar sozinha, o cadastro já mudou e o
+      // percentual não -- por isso a mensagem diz exatamente o que ficou pendente
+      await salvarComissao.mutateAsync({
+        vendedorId: editando.id,
+        percentual,
+        vigenteDesde: hojeIso(),
+      })
+    } catch (e) {
+      setErroEdicao(e instanceof Error ? e.message : 'Não foi possível salvar.')
+      return
+    }
     setEditando(null)
   }
 
@@ -228,7 +249,7 @@ export default function Equipe() {
             placeholder="Nova senha (opcional, mín. 8 caracteres)"
             className="w-full rounded-lg border border-stone-300 px-3 py-3"
           />
-          {atualizar.error && <p className="text-sm text-red-700">{atualizar.error.message}</p>}
+          {erroEdicao && <p className="text-sm text-red-700">{erroEdicao}</p>}
           <div className="flex gap-2">
             <button
               type="submit"
