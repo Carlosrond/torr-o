@@ -5,6 +5,7 @@ const ABAS = [
   { para: '/', rotulo: 'Pedido' },
   { para: '/clientes', rotulo: 'Clientes' },
   { para: '/painel', rotulo: 'Painel' },
+  { para: '/comissao', rotulo: 'Comissão' },
   { para: '/precos', rotulo: 'Preços', soAdmin: true },
   { para: '/equipe', rotulo: 'Equipe', soAdmin: true },
 ]
