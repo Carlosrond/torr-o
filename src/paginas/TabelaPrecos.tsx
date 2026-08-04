@@ -64,17 +64,27 @@ export default function TabelaPrecos() {
       vigenteDesde,
     }))
 
-    for (const faixa of novas) {
+    for (let i = 0; i < novas.length; i++) {
+      const faixa = novas[i]
+      const linha = linhas[i]
+      const rotuloFaixa = Number.isFinite(faixa.kgMin) ? `${faixa.kgMin} kg` : `"${linha.kgMin}"`
+
       if (!Number.isFinite(faixa.kgMin) || faixa.kgMin < 0) {
-        setErroForm('Todo piso de faixa precisa ser um número maior ou igual a zero.')
+        setErroForm(
+          `O piso da faixa de ${rotuloFaixa} do ${faixa.sku} está vazio ou inválido. Use vírgula ou ponto, por exemplo 0 ou 25.`,
+        )
         return
       }
       if (faixa.kgMax !== null && faixa.kgMax <= faixa.kgMin) {
-        setErroForm('O teto da faixa tem que ser maior que o piso.')
+        setErroForm(
+          `Na faixa de ${rotuloFaixa} do ${faixa.sku}, o teto (${faixa.kgMax} kg) precisa ser maior que o piso.`,
+        )
         return
       }
       if (!Number.isFinite(faixa.precoUnit) || faixa.precoUnit <= 0) {
-        setErroForm('Todo preço precisa ser maior que zero.')
+        setErroForm(
+          `O preço da faixa de ${rotuloFaixa} do ${faixa.sku} está vazio ou inválido. Use vírgula ou ponto, por exemplo 10,50.`,
+        )
         return
       }
     }
@@ -82,7 +92,9 @@ export default function TabelaPrecos() {
     for (const sku of SKUS) {
       const doSku = novas.filter((f) => f.sku === sku)
       if (doSku.length > 0 && !doSku.some((f) => f.kgMax === null)) {
-        setErroForm(`Falta a faixa sem teto (o "51+ kg") do ${sku}, senão pedido grande fica sem preço.`)
+        setErroForm(
+          `Falta a faixa sem teto do ${sku}. Deixe o campo de kg máximo vazio na última faixa, senão pedido grande fica sem preço.`,
+        )
         return
       }
     }
@@ -94,7 +106,9 @@ export default function TabelaPrecos() {
       if (doSku.length === 0) continue
 
       if (doSku[0].kgMin !== 0) {
-        setErroForm(`A tabela do ${sku} precisa começar em 0 kg — hoje a primeira faixa começa em ${doSku[0].kgMin} kg.`)
+        setErroForm(
+          `A primeira faixa do ${sku} começa em ${doSku[0].kgMin} kg. Ela precisa começar em 0, senão um pedido pequeno fica sem preço.`,
+        )
         return
       }
 
@@ -102,26 +116,28 @@ export default function TabelaPrecos() {
         const atual = doSku[i]
         const seguinte = doSku[i + 1]
         if (atual.kgMax === null) {
-          setErroForm(`A tabela do ${sku} tem faixa sem teto no meio — só a última faixa pode ser sem teto.`)
+          setErroForm(
+            `A tabela do ${sku} tem uma faixa sem teto no meio — só a última faixa pode ficar sem teto.`,
+          )
           return
         }
         const diferenca = seguinte.kgMin - atual.kgMax
         if (diferenca > FOLGA) {
           setErroForm(
-            `A tabela do ${sku} tem um furo entre ${atual.kgMax} kg e ${seguinte.kgMin} kg — pedido nessa faixa ficaria sem preço.`,
+            `A tabela do ${sku} tem um furo entre ${atual.kgMax} kg e ${seguinte.kgMin} kg — pedido nesse volume ficaria sem preço.`,
           )
           return
         }
         if (diferenca < -FOLGA) {
           setErroForm(
-            `A tabela do ${sku} tem sobreposição entre ${atual.kgMin}–${atual.kgMax} kg e ${seguinte.kgMin}–${seguinte.kgMax ?? 'sem teto'} kg.`,
+            `As faixas do ${sku} se sobrepõem: uma termina em ${atual.kgMax} kg e a seguinte também começa em ${seguinte.kgMin} kg. Faça a seguinte começar em ${(atual.kgMax + 0.001).toFixed(3)}.`,
           )
           return
         }
       }
 
       if (doSku[doSku.length - 1].kgMax !== null) {
-        setErroForm(`A última faixa do ${sku} precisa ser sem teto (o "51+ kg").`)
+        setErroForm(`Falta a faixa sem teto do ${sku}. Deixe o campo de kg máximo vazio na última faixa.`)
         return
       }
     }
