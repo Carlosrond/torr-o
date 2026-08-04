@@ -281,6 +281,9 @@ export default function FichaCliente() {
                   </span>
                   <span className="flex items-center gap-2 tabular-nums">
                     {kgTexto(pedido.totalKg)} · {reais(pedido.totalValor)}
+                    <Link to={`/romaneio/${pedido.id}`} className="text-xs text-stone-600 underline">
+                      Romaneio
+                    </Link>
                     <button
                       type="button"
                       onClick={() => cancelarPedidoLancado(pedido.id)}

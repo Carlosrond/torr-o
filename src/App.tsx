@@ -14,6 +14,7 @@ import Mais from '@/paginas/Mais'
 import NovoPedido from '@/paginas/NovoPedido'
 import Painel from '@/paginas/Painel'
 import Produtos from '@/paginas/Produtos'
+import Romaneio from '@/paginas/Romaneio'
 import TabelaPrecos from '@/paginas/TabelaPrecos'
 
 const queryClient = new QueryClient({
@@ -27,6 +28,15 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/entrar" element={<Login />} />
+            {/* fora do AppShell de propósito: romaneio é papel, não tela de app -- sem nav pra esconder na impressão */}
+            <Route
+              path="/romaneio/:id"
+              element={
+                <RotaProtegida>
+                  <Romaneio />
+                </RotaProtegida>
+              }
+            />
             <Route
               element={
                 <RotaProtegida>
