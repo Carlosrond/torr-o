@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   apenasValidos,
   baseDeClientes,
+  comparativoPeriodo,
+  janelaAnterior,
+  janelaPeriodo,
   mixPorSku,
   noPeriodo,
   porCanal,
@@ -154,5 +157,113 @@ describe('baseDeClientes', () => {
       novos: 1, // novo (primeiro pedido de todos caiu na janela)
       perdidos: 1, // sumiu (comprou na janela anterior e nao voltou)
     })
+  })
+})
+
+describe('janelaPeriodo', () => {
+  it('hoje: janela de um dia so, rotulo Hoje', () => {
+    expect(janelaPeriodo('hoje', '2026-08-05')).toEqual({
+      inicio: '2026-08-05',
+      fim: '2026-08-05',
+      rotulo: 'Hoje',
+    })
+  })
+
+  it('semana: da segunda-feira ate hoje', () => {
+    // 2026-08-03 e segunda; 2026-08-05 e quarta
+    expect(janelaPeriodo('semana', '2026-08-05')).toEqual({
+      inicio: '2026-08-03',
+      fim: '2026-08-05',
+      rotulo: 'Esta semana',
+    })
+  })
+
+  it('mes: do dia 1 ate hoje', () => {
+    expect(janelaPeriodo('mes', '2026-08-15')).toEqual({
+      inicio: '2026-08-01',
+      fim: '2026-08-15',
+      rotulo: 'Este mês',
+    })
+  })
+})
+
+describe('janelaAnterior', () => {
+  it('janela de um dia: anterior e o dia de antes', () => {
+    expect(janelaAnterior({ inicio: '2026-08-05', fim: '2026-08-05', rotulo: 'Hoje' })).toEqual({
+      inicio: '2026-08-04',
+      fim: '2026-08-04',
+    })
+  })
+
+  it('janela de varios dias: anterior tem o mesmo tamanho, colada antes', () => {
+    // janela de 3 dias (03 a 05); anterior tambem tem 3 dias, terminando em 02
+    expect(
+      janelaAnterior({ inicio: '2026-08-03', fim: '2026-08-05', rotulo: 'Esta semana' }),
+    ).toEqual({
+      inicio: '2026-07-31',
+      fim: '2026-08-02',
+    })
+  })
+})
+
+describe('comparativoPeriodo', () => {
+  const HISTORICO: PedidoMetrica[] = [
+    {
+      data: '2026-08-04',
+      clienteId: 'c1',
+      clienteNome: 'Padaria Ontem',
+      canal: 'revenda',
+      condicao: 'avista',
+      status: 'entregue',
+      totalKg: 10,
+      totalValor: 300,
+      itens: [],
+    },
+    {
+      data: '2026-08-05',
+      clienteId: 'c1',
+      clienteNome: 'Padaria Ontem',
+      canal: 'revenda',
+      condicao: 'avista',
+      status: 'entregue',
+      totalKg: 15,
+      totalValor: 450,
+      itens: [],
+    },
+  ]
+
+  it('hoje vs ontem: soma o dia e compara com o anterior', () => {
+    const comparativo = comparativoPeriodo(HISTORICO, 'hoje', '2026-08-05')
+    expect(comparativo.atual).toEqual({ kg: 15, receita: 450, quantidade: 1 })
+    expect(comparativo.anterior).toEqual({ kg: 10, receita: 300, quantidade: 1 })
+    expect(comparativo.variacaoReceitaPct).toBe(50)
+    expect(comparativo.variacaoKgPct).toBe(50)
+  })
+
+  it('anterior zerado devolve null na variacao — nunca Infinity', () => {
+    const soHoje: PedidoMetrica[] = [HISTORICO[1]]
+    const comparativo = comparativoPeriodo(soHoje, 'hoje', '2026-08-05')
+    expect(comparativo.anterior).toEqual({ kg: 0, receita: 0, quantidade: 0 })
+    expect(comparativo.variacaoReceitaPct).toBeNull()
+    expect(comparativo.variacaoKgPct).toBeNull()
+  })
+
+  it('pedido cancelado fica fora da conta em ambas as janelas', () => {
+    const comCancelado: PedidoMetrica[] = [
+      ...HISTORICO,
+      {
+        data: '2026-08-05',
+        clienteId: 'c2',
+        clienteNome: 'Nao Conta',
+        canal: 'revenda',
+        condicao: 'avista',
+        status: 'cancelado',
+        totalKg: 999,
+        totalValor: 9999,
+        itens: [],
+      },
+    ]
+    const comparativo = comparativoPeriodo(comCancelado, 'hoje', '2026-08-05')
+    expect(comparativo.atual).toEqual({ kg: 15, receita: 450, quantidade: 1 })
   })
 })

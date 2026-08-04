@@ -172,6 +172,74 @@ export function porCanal(
     .sort((a, b) => b.receita - a.receita)
 }
 
+export type Periodo = 'hoje' | 'semana' | 'mes'
+
+export interface JanelaPeriodo {
+  inicio: string
+  fim: string
+  rotulo: string
+}
+
+const ROTULO_PERIODO: Record<Periodo, string> = {
+  hoje: 'Hoje',
+  semana: 'Esta semana',
+  mes: 'Este mês',
+}
+
+/** Janela do período contando a partir de `hoje`. `semana` = segunda a hoje. `mes` = dia 1 a hoje. */
+export function janelaPeriodo(periodo: Periodo, hoje: string): JanelaPeriodo {
+  const inicio =
+    periodo === 'hoje'
+      ? hoje
+      : periodo === 'semana'
+        ? segundaDaSemana(hoje)
+        : `${hoje.slice(0, 7)}-01`
+  return { inicio, fim: hoje, rotulo: ROTULO_PERIODO[periodo] }
+}
+
+/** Janela imediatamente anterior, de mesmo tamanho, para comparação justa. */
+export function janelaAnterior(janela: JanelaPeriodo): { inicio: string; fim: string } {
+  const tamanho = diffDias(janela.inicio, janela.fim)
+  return {
+    inicio: addDias(janela.inicio, -(tamanho + 1)),
+    fim: addDias(janela.inicio, -1),
+  }
+}
+
+export interface Comparativo {
+  atual: { kg: number; receita: number; quantidade: number }
+  anterior: { kg: number; receita: number; quantidade: number }
+  /** null quando o anterior foi zero — não dá para dividir por zero. */
+  variacaoReceitaPct: number | null
+  variacaoKgPct: number | null
+}
+
+function variacaoPercentual(atual: number, anterior: number): number | null {
+  if (anterior === 0) return null
+  return arredondar2(((atual - anterior) / anterior) * 100)
+}
+
+/** Compara o período selecionado com o período anterior de mesmo tamanho — a régua do "Hoje". */
+export function comparativoPeriodo(
+  pedidos: PedidoMetrica[],
+  periodo: Periodo,
+  hoje: string,
+): Comparativo {
+  const validos = apenasValidos(pedidos)
+  const janela = janelaPeriodo(periodo, hoje)
+  const anterior = janelaAnterior(janela)
+
+  const atual = resumo(noPeriodo(validos, janela.inicio, janela.fim))
+  const doAnterior = resumo(noPeriodo(validos, anterior.inicio, anterior.fim))
+
+  return {
+    atual: { kg: atual.kg, receita: atual.receita, quantidade: atual.quantidade },
+    anterior: { kg: doAnterior.kg, receita: doAnterior.receita, quantidade: doAnterior.quantidade },
+    variacaoReceitaPct: variacaoPercentual(atual.receita, doAnterior.receita),
+    variacaoKgPct: variacaoPercentual(atual.kg, doAnterior.kg),
+  }
+}
+
 /**
  * Base de clientes na janela. "Perdidos" compara com a janela anterior de mesmo tamanho:
  * comprou antes, não comprou agora.
