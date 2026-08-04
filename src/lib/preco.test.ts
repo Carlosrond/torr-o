@@ -8,6 +8,8 @@ import {
   precificar,
   proximaFaixa,
   totalPedido,
+  validarFaixas,
+  type FaixaParaValidar,
 } from './preco'
 
 /** Tabela de exemplo: faixas em kg do pedido inteiro, por SKU. */
@@ -170,5 +172,100 @@ describe('proximaFaixa', () => {
 
   it('devolve null quando o cliente ja esta na melhor faixa', () => {
     expect(proximaFaixa(FAIXAS, '250g', 80, '2026-03-01')).toBeNull()
+  })
+})
+
+describe('validarFaixas', () => {
+  const faixa = (kgMin: number, kgMax: number | null, precoUnit: number): FaixaParaValidar => ({
+    sku: '250g',
+    kgMin,
+    kgMax,
+    precoUnit,
+  })
+
+  it('caminho feliz: grade de 5 fechada e sem furo (5-25, 30-50, 55-sem teto)', () => {
+    expect(
+      validarFaixas([faixa(5, 25, 11), faixa(30, 50, 10), faixa(55, null, 8.7)]),
+    ).toBeNull()
+  })
+
+  it('5-25 seguido de 30-50 nao e furo (caso que hoje falha em ponto flutuante)', () => {
+    // sem a faixa sem-teto, a tabela fica incompleta - mas a mensagem tem que ser
+    // "falta faixa sem teto", nunca um falso furo entre 25 e 30.
+    const resultado = validarFaixas([faixa(5, 25, 11), faixa(30, 50, 10)])
+    expect(resultado).toBe(
+      'Falta a faixa sem teto do 250g. Deixe o campo de kg máximo vazio na última faixa, senão pedido grande fica sem preço.',
+    )
+  })
+
+  it('rejeita preço vazio ou invalido', () => {
+    const resultado = validarFaixas([
+      faixa(5, 25, 11),
+      faixa(30, 50, NaN),
+      faixa(55, null, 8.7),
+    ])
+    expect(resultado).toBe(
+      'O preço da faixa de 30 kg do 250g está vazio ou inválido. Use vírgula ou ponto, por exemplo 10,50.',
+    )
+  })
+
+  it('rejeita kg que nao e multiplo de 5', () => {
+    const resultado = validarFaixas([
+      faixa(5, 25, 11),
+      faixa(27, 50, 10),
+      faixa(55, null, 8.7),
+    ])
+    expect(resultado).toBe(
+      'A faixa do 250g que começa em 27 kg não é múltipla de 5. Use números fechados: 5, 10, 15, 20…',
+    )
+  })
+
+  it('rejeita primeira faixa que nao comeca em 5', () => {
+    const resultado = validarFaixas([faixa(30, null, 10)])
+    expect(resultado).toBe(
+      'A primeira faixa do 250g começa em 30 kg. Ela precisa começar em 5 kg, que é o pedido mínimo.',
+    )
+  })
+
+  it('rejeita teto menor ou igual ao piso', () => {
+    const resultado = validarFaixas([faixa(5, 25, 11), faixa(30, 25, 10)])
+    expect(resultado).toBe(
+      'A faixa do 250g que começa em 30 kg termina em 25 kg. O teto tem que ser maior que o piso.',
+    )
+  })
+
+  it('rejeita faixas sobrepostas', () => {
+    const resultado = validarFaixas([faixa(5, 50, 11), faixa(50, null, 8.7)])
+    expect(resultado).toBe(
+      'As faixas do 250g se sobrepõem: uma vai até 50 kg e a seguinte já começa em 50 kg.',
+    )
+  })
+
+  it('rejeita furo real entre faixas', () => {
+    const resultado = validarFaixas([faixa(5, 25, 11), faixa(40, null, 8.7)])
+    expect(resultado).toBe(
+      'A tabela do 250g pula de 25 kg para 40 kg. A faixa seguinte tem que começar em 30 kg.',
+    )
+  })
+
+  it('rejeita tabela sem faixa sem teto', () => {
+    const resultado = validarFaixas([faixa(5, 50, 11)])
+    expect(resultado).toBe(
+      'Falta a faixa sem teto do 250g. Deixe o campo de kg máximo vazio na última faixa, senão pedido grande fica sem preço.',
+    )
+  })
+
+  it('rejeita duas faixas sem teto', () => {
+    const resultado = validarFaixas([faixa(5, null, 11), faixa(30, null, 8.7)])
+    expect(resultado).toBe('O 250g tem duas faixas sem teto. Só a última pode ficar sem teto.')
+  })
+
+  it('valida so os SKUs presentes na lista (um SKU so e permitido)', () => {
+    expect(
+      validarFaixas([
+        { sku: '500g', kgMin: 5, kgMax: 25, precoUnit: 20 },
+        { sku: '500g', kgMin: 30, kgMax: null, precoUnit: 18 },
+      ]),
+    ).toBeNull()
   })
 })

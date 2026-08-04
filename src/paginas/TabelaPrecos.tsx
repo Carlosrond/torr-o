@@ -4,6 +4,7 @@ import { useSalvarFaixas, usePrecos, type NovaFaixa } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
 import { dataLonga, reais } from '@/lib/formato'
 import { paraNumero } from '@/lib/numero'
+import { MULTIPLO_KG, validarFaixas } from '@/lib/preco'
 import { SKUS, type FaixaPreco, type Sku } from '@/lib/tipos'
 
 interface LinhaForm {
@@ -26,6 +27,37 @@ function vigentesHoje(faixas: FaixaPreco[], hoje: string): FaixaPreco[] {
   )
 }
 
+/**
+ * Normaliza faixas legado (ex.: 0–10, 10.001–50) para a grade fechada de 5 em 5: arredonda
+ * cada teto para o múltiplo de 5 mais próximo, força a primeira faixa a começar em
+ * MULTIPLO_KG e reconstrói a contiguidade (piso seguinte = teto anterior + MULTIPLO_KG),
+ * preservando o preço de cada faixa na sua posição original.
+ */
+function normalizarParaGrade5(faixas: FaixaPreco[]): LinhaForm[] {
+  const arredondar5 = (kg: number) => Math.round(kg / MULTIPLO_KG) * MULTIPLO_KG
+
+  const linhas: LinhaForm[] = []
+  for (const sku of SKUS) {
+    const doSku = faixas.filter((f) => f.sku === sku).sort((a, b) => a.kgMin - b.kgMin)
+    if (doSku.length === 0) continue
+
+    let piso = MULTIPLO_KG
+    doSku.forEach((faixa, indice) => {
+      const ultima = indice === doSku.length - 1
+      const tetoArredondado = faixa.kgMax === null ? piso : arredondar5(faixa.kgMax)
+      const teto = ultima ? null : Math.max(tetoArredondado, piso + MULTIPLO_KG)
+      linhas.push({
+        sku,
+        kgMin: String(piso),
+        kgMax: teto === null ? '' : String(teto),
+        precoUnit: String(faixa.precoUnit),
+      })
+      if (teto !== null) piso = teto + MULTIPLO_KG
+    })
+  }
+  return linhas
+}
+
 export default function TabelaPrecos() {
   const { data: faixas, isLoading, error } = usePrecos()
   const salvar = useSalvarFaixas()
@@ -39,14 +71,7 @@ export default function TabelaPrecos() {
   const emVigor = vigentesHoje(faixas ?? [], hojeIso())
 
   function carregarDoAtual() {
-    setLinhas(
-      emVigor.map((faixa) => ({
-        sku: faixa.sku,
-        kgMin: String(faixa.kgMin),
-        kgMax: faixa.kgMax === null ? '' : String(faixa.kgMax),
-        precoUnit: String(faixa.precoUnit),
-      })),
-    )
+    setLinhas(normalizarParaGrade5(emVigor))
   }
 
   function adicionarLinha() {
@@ -64,82 +89,10 @@ export default function TabelaPrecos() {
       vigenteDesde,
     }))
 
-    for (let i = 0; i < novas.length; i++) {
-      const faixa = novas[i]
-      const linha = linhas[i]
-      const rotuloFaixa = Number.isFinite(faixa.kgMin) ? `${faixa.kgMin} kg` : `"${linha.kgMin}"`
-
-      if (!Number.isFinite(faixa.kgMin) || faixa.kgMin < 0) {
-        setErroForm(
-          `O piso da faixa de ${rotuloFaixa} do ${faixa.sku} está vazio ou inválido. Use vírgula ou ponto, por exemplo 0 ou 25.`,
-        )
-        return
-      }
-      if (faixa.kgMax !== null && faixa.kgMax <= faixa.kgMin) {
-        setErroForm(
-          `Na faixa de ${rotuloFaixa} do ${faixa.sku}, o teto (${faixa.kgMax} kg) precisa ser maior que o piso.`,
-        )
-        return
-      }
-      if (!Number.isFinite(faixa.precoUnit) || faixa.precoUnit <= 0) {
-        setErroForm(
-          `O preço da faixa de ${rotuloFaixa} do ${faixa.sku} está vazio ou inválido. Use vírgula ou ponto, por exemplo 10,50.`,
-        )
-        return
-      }
-    }
-
-    for (const sku of SKUS) {
-      const doSku = novas.filter((f) => f.sku === sku)
-      if (doSku.length > 0 && !doSku.some((f) => f.kgMax === null)) {
-        setErroForm(
-          `Falta a faixa sem teto do ${sku}. Deixe o campo de kg máximo vazio na última faixa, senão pedido grande fica sem preço.`,
-        )
-        return
-      }
-    }
-
-    // cobertura continua por SKU: sem furo e sem sobreposicao entre as faixas da nova versao
-    const FOLGA = 0.001
-    for (const sku of SKUS) {
-      const doSku = novas.filter((f) => f.sku === sku).sort((a, b) => a.kgMin - b.kgMin)
-      if (doSku.length === 0) continue
-
-      if (doSku[0].kgMin !== 0) {
-        setErroForm(
-          `A primeira faixa do ${sku} começa em ${doSku[0].kgMin} kg. Ela precisa começar em 0, senão um pedido pequeno fica sem preço.`,
-        )
-        return
-      }
-
-      for (let i = 0; i < doSku.length - 1; i++) {
-        const atual = doSku[i]
-        const seguinte = doSku[i + 1]
-        if (atual.kgMax === null) {
-          setErroForm(
-            `A tabela do ${sku} tem uma faixa sem teto no meio — só a última faixa pode ficar sem teto.`,
-          )
-          return
-        }
-        const diferenca = seguinte.kgMin - atual.kgMax
-        if (diferenca > FOLGA) {
-          setErroForm(
-            `A tabela do ${sku} tem um furo entre ${atual.kgMax} kg e ${seguinte.kgMin} kg — pedido nesse volume ficaria sem preço.`,
-          )
-          return
-        }
-        if (diferenca < -FOLGA) {
-          setErroForm(
-            `As faixas do ${sku} se sobrepõem: uma termina em ${atual.kgMax} kg e a seguinte também começa em ${seguinte.kgMin} kg. Faça a seguinte começar em ${(atual.kgMax + 0.001).toFixed(3)}.`,
-          )
-          return
-        }
-      }
-
-      if (doSku[doSku.length - 1].kgMax !== null) {
-        setErroForm(`Falta a faixa sem teto do ${sku}. Deixe o campo de kg máximo vazio na última faixa.`)
-        return
-      }
+    const erro = validarFaixas(novas)
+    if (erro) {
+      setErroForm(erro)
+      return
     }
 
     await salvar.mutateAsync(novas)
@@ -211,6 +164,11 @@ export default function TabelaPrecos() {
             + Faixa
           </button>
         </div>
+
+        <p className="text-sm text-stone-500">
+          Faixas fechadas de 5 em 5 (o pedido é sempre múltiplo de 5 kg): 5 a 25, 30 a 50, 55 sem
+          teto.
+        </p>
 
         {linhas.map((linha, indice) => (
           <div key={indice} className="grid grid-cols-4 gap-2">
