@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  agruparPorDia,
   apenasValidos,
   baseDeClientes,
   comparativoPeriodo,
@@ -299,5 +300,38 @@ describe('comparativoPeriodo', () => {
     ]
     const comparativo = comparativoPeriodo(comCancelado, 'hoje', '2026-08-05')
     expect(comparativo.atual).toEqual({ kg: 15, receita: 450, quantidade: 1 })
+  })
+})
+
+describe('agruparPorDia', () => {
+  it('ordena os dias do mais recente para o mais antigo', () => {
+    expect(agruparPorDia(PEDIDOS).map((g) => g.dia)).toEqual([
+      '2026-07-20',
+      '2026-07-14',
+      '2026-07-06',
+    ])
+  })
+
+  it('cancelado entra na lista do dia mas fica fora do subtotal', () => {
+    const doDiaCancelado = agruparPorDia(PEDIDOS).find((g) => g.dia === '2026-07-20')
+    expect(doDiaCancelado).toEqual({
+      dia: '2026-07-20',
+      kg: 0,
+      valor: 0,
+      pedidos: [PEDIDOS[2]],
+    })
+  })
+
+  it('soma kg e valor só dos pedidos válidos do dia', () => {
+    const doDia = agruparPorDia(PEDIDOS).find((g) => g.dia === '2026-07-06')
+    expect(doDia).toEqual({ dia: '2026-07-06', kg: 20, valor: 800, pedidos: [PEDIDOS[0]] })
+  })
+
+  it('dia sem pedido nao aparece', () => {
+    expect(agruparPorDia(PEDIDOS).some((g) => g.dia === '2026-07-10')).toBe(false)
+  })
+
+  it('sem pedido nenhum devolve lista vazia', () => {
+    expect(agruparPorDia([])).toEqual([])
   })
 })

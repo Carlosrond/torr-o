@@ -23,6 +23,12 @@ export default function Mais() {
             <p className="text-sm text-stone-700">Veja o que já fechou e o que ainda falta apurar.</p>
           </Link>
         </li>
+        <li>
+          <Link to="/relatorio" className="block min-h-[44px] p-4">
+            <p className="font-medium">Relatório</p>
+            <p className="text-sm text-stone-700">Pedidos por período, agrupados por dia, com exportação em CSV.</p>
+          </Link>
+        </li>
         {papel === 'admin' && (
           <li>
             <Link to="/produtos" className="block min-h-[44px] p-4">

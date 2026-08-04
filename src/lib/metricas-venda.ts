@@ -25,16 +25,12 @@ export interface PedidoMetrica {
   itens: ItemPrecificado[]
 }
 
-/** Pedido cancelado não entra em métrica nenhuma. */
-export function apenasValidos(pedidos: PedidoMetrica[]): PedidoMetrica[] {
+/** Pedido cancelado não entra em métrica nenhuma. Genérico: preserva campos extras (ex.: PedidoCompleto) do chamador. */
+export function apenasValidos<T extends PedidoMetrica>(pedidos: T[]): T[] {
   return pedidos.filter((pedido) => pedido.status !== 'cancelado')
 }
 
-export function noPeriodo(
-  pedidos: PedidoMetrica[],
-  inicio: string,
-  fim: string,
-): PedidoMetrica[] {
+export function noPeriodo<T extends PedidoMetrica>(pedidos: T[], inicio: string, fim: string): T[] {
   return pedidos.filter((pedido) => pedido.data >= inicio && pedido.data <= fim)
 }
 
@@ -213,6 +209,34 @@ export function porCanal(
       receita: arredondar2(valores.receita),
     }))
     .sort((a, b) => b.receita - a.receita)
+}
+
+/**
+ * Agrupa pedidos por dia, do mais recente para o mais antigo — a lista do Relatorio.
+ * Cancelado fica na lista do dia (a tela decide se mostra riscado) mas nunca entra no
+ * subtotal. Dia sem pedido nenhum simplesmente não aparece — não há intervalo pra
+ * preencher, é a lista de dias que tiveram pedido.
+ */
+export function agruparPorDia<T extends PedidoMetrica>(
+  pedidos: T[],
+): { dia: string; kg: number; valor: number; pedidos: T[] }[] {
+  const porDia = new Map<string, T[]>()
+  for (const pedido of pedidos) {
+    const doDia = porDia.get(pedido.data) ?? []
+    doDia.push(pedido)
+    porDia.set(pedido.data, doDia)
+  }
+  return [...porDia.entries()]
+    .map(([dia, doDia]) => {
+      const validos = apenasValidos(doDia)
+      return {
+        dia,
+        kg: arredondar2(validos.reduce((soma, p) => soma + p.totalKg, 0)),
+        valor: arredondar2(validos.reduce((soma, p) => soma + p.totalValor, 0)),
+        pedidos: doDia,
+      }
+    })
+    .sort((a, b) => b.dia.localeCompare(a.dia))
 }
 
 export type Periodo = 'hoje' | 'semana' | 'mes'

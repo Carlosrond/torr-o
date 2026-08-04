@@ -14,6 +14,7 @@ import Mais from '@/paginas/Mais'
 import NovoPedido from '@/paginas/NovoPedido'
 import Painel from '@/paginas/Painel'
 import Produtos from '@/paginas/Produtos'
+import Relatorio from '@/paginas/Relatorio'
 import Romaneio from '@/paginas/Romaneio'
 import TabelaPrecos from '@/paginas/TabelaPrecos'
 
@@ -52,6 +53,7 @@ export default function App() {
               <Route path="/painel" element={<Painel />} />
               <Route path="/mais" element={<Mais />} />
               <Route path="/comissao" element={<Comissao />} />
+              <Route path="/relatorio" element={<Relatorio />} />
               <Route
                 path="/precos"
                 element={
