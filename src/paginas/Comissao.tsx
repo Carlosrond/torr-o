@@ -92,7 +92,12 @@ export default function Comissao() {
         <>
           <div className="mb-4 grid grid-cols-2 gap-3">
             <Cartao titulo="Base total" valor={reais(resumo.baseTotal)} />
-            <Cartao titulo="Percentual vigente" valor={`${percentualHoje === null ? "—" : numeroTexto(percentualHoje)}%`} />
+            {/* é o percentual de HOJE, mesmo navegando mês passado — o cálculo por linha usa a regra da data de cada venda */}
+            <Cartao
+              titulo="Percentual vigente"
+              valor={`${percentualHoje === null ? '—' : numeroTexto(percentualHoje)}%`}
+              detalhe="hoje"
+            />
             <Cartao titulo="Comissão total" valor={reais(resumo.comissaoTotal)} alerta />
             <Cartao
               titulo="Por origem (pedido / consignado)"

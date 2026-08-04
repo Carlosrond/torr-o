@@ -12,14 +12,13 @@ import { agruparPorDia, apenasValidos, noPeriodo, resumo } from '@/lib/metricas-
 import { arredondar2 } from '@/lib/numero'
 import { KG_POR_SKU, ROTULO_CONDICAO, type CondicaoPagamento } from '@/lib/tipos'
 
-const HOJE = hojeIso()
-const MES_ATUAL = limitesDoMes(HOJE)
-
+// hojeIso() dentro de cada atalho, nunca em const de módulo: como PWA o app fica
+// aberto por dias, e um "Hoje" congelado no carregamento mostraria a venda de ontem
 const ATALHOS: { rotulo: string; janela: () => { inicio: string; fim: string } }[] = [
-  { rotulo: 'Hoje', janela: () => ({ inicio: HOJE, fim: HOJE }) },
-  { rotulo: 'Últimos 7 dias', janela: () => ({ inicio: addDias(HOJE, -6), fim: HOJE }) },
-  { rotulo: 'Este mês', janela: () => limitesDoMes(HOJE) },
-  { rotulo: 'Mês passado', janela: () => limitesDoMes(addDias(MES_ATUAL.inicio, -1)) },
+  { rotulo: 'Hoje', janela: () => ({ inicio: hojeIso(), fim: hojeIso() }) },
+  { rotulo: 'Últimos 7 dias', janela: () => ({ inicio: addDias(hojeIso(), -6), fim: hojeIso() }) },
+  { rotulo: 'Este mês', janela: () => limitesDoMes(hojeIso()) },
+  { rotulo: 'Mês passado', janela: () => limitesDoMes(addDias(limitesDoMes(hojeIso()).inicio, -1)) },
 ]
 
 /** Escapa pra CSV: aspas duplicadas, campo inteiro entre aspas (protege contra ; e quebra de linha no nome). */
@@ -90,8 +89,8 @@ export default function Relatorio() {
   const { data: clientes } = useClientes()
   const { data: produtos } = useProdutos()
 
-  const [inicio, setInicio] = useState(MES_ATUAL.inicio)
-  const [fim, setFim] = useState(MES_ATUAL.fim)
+  const [inicio, setInicio] = useState(() => limitesDoMes(hojeIso()).inicio)
+  const [fim, setFim] = useState(() => limitesDoMes(hojeIso()).fim)
   const [clienteFiltro, setClienteFiltro] = useState('')
   const [condicaoFiltro, setCondicaoFiltro] = useState<CondicaoPagamento | ''>('')
   const [mostrarCancelados, setMostrarCancelados] = useState(false)
