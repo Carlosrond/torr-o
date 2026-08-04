@@ -4,6 +4,7 @@ import { AppShell } from '@/componentes/AppShell'
 import { RotaProtegida } from '@/componentes/RotaProtegida'
 import { ProvedorAuth } from '@/hooks/useAuth'
 import Clientes from '@/paginas/Clientes'
+import Equipe from '@/paginas/Equipe'
 import FichaCliente from '@/paginas/FichaCliente'
 import Login from '@/paginas/Login'
 import NovoPedido from '@/paginas/NovoPedido'
@@ -37,6 +38,14 @@ export default function App() {
                 element={
                   <RotaProtegida soAdmin>
                     <TabelaPrecos />
+                  </RotaProtegida>
+                }
+              />
+              <Route
+                path="/equipe"
+                element={
+                  <RotaProtegida soAdmin>
+                    <Equipe />
                   </RotaProtegida>
                 }
               />

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
+import { useAuth } from '@/hooks/useAuth'
 import { useClientes, useSalvarCliente, type Cliente } from '@/hooks/useClientes'
+import { useEquipe } from '@/hooks/useEquipe'
 import { paraNumero } from '@/lib/numero'
 import { ROTULO_CANAL, ROTULO_CONDICAO, type Canal, type CondicaoPagamento } from '@/lib/tipos'
 
@@ -13,10 +15,13 @@ const VAZIO = {
   condicaoPadrao: 'avista' as CondicaoPagamento,
   cadenciaDeclaradaDias: '' as string,
   ativo: true,
+  vendedorId: '' as string,
 }
 
 export default function Clientes() {
+  const { papel } = useAuth()
   const { data: clientes, isLoading, error } = useClientes()
+  const { data: equipe } = useEquipe({ enabled: papel === 'admin' })
   const salvar = useSalvarCliente()
   const [form, setForm] = useState(VAZIO)
   const [editandoId, setEditandoId] = useState<string | null>(null)
@@ -39,6 +44,7 @@ export default function Clientes() {
       cadenciaDeclaradaDias:
         cliente.cadenciaDeclaradaDias === null ? '' : String(cliente.cadenciaDeclaradaDias),
       ativo: cliente.ativo,
+      vendedorId: cliente.vendedorId,
     })
     setEditandoId(cliente.id)
     setAberto(true)
@@ -57,6 +63,7 @@ export default function Clientes() {
         ? paraNumero(form.cadenciaDeclaradaDias)
         : null,
       ativo: form.ativo,
+      ...(papel === 'admin' && form.vendedorId ? { vendedorId: form.vendedorId } : {}),
     })
     setAberto(false)
   }
@@ -105,6 +112,25 @@ export default function Clientes() {
               </option>
             ))}
           </select>
+          {papel === 'admin' && (
+            <select
+              required
+              value={form.vendedorId}
+              onChange={(e) => setForm({ ...form, vendedorId: e.target.value })}
+              className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            >
+              <option value="" disabled>
+                Vendedor responsável
+              </option>
+              {(equipe ?? [])
+                .filter((m) => m.papel === 'vendedor' && m.ativo)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nome}
+                  </option>
+                ))}
+            </select>
+          )}
           <div className="flex gap-2">
             <input
               value={form.cidade}

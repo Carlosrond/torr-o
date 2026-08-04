@@ -11,9 +11,10 @@ export interface Cliente {
   condicaoPadrao: CondicaoPagamento
   cadenciaDeclaradaDias: number | null
   ativo: boolean
+  vendedorId: string
 }
 
-export type ClienteInput = Omit<Cliente, 'id'> & { id?: string }
+export type ClienteInput = Omit<Cliente, 'id' | 'vendedorId'> & { id?: string; vendedorId?: string }
 
 interface LinhaCliente {
   id: string
@@ -24,6 +25,7 @@ interface LinhaCliente {
   condicao_padrao: CondicaoPagamento
   cadencia_declarada_dias: number | null
   ativo: boolean
+  vendedor_id: string
 }
 
 function mapear(linha: LinhaCliente): Cliente {
@@ -36,6 +38,7 @@ function mapear(linha: LinhaCliente): Cliente {
     condicaoPadrao: linha.condicao_padrao,
     cadenciaDeclaradaDias: linha.cadencia_declarada_dias,
     ativo: linha.ativo,
+    vendedorId: linha.vendedor_id,
   }
 }
 
@@ -45,7 +48,9 @@ export function useClientes() {
     queryFn: async (): Promise<Cliente[]> => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, canal, cidade, whatsapp, condicao_padrao, cadencia_declarada_dias, ativo')
+        .select(
+          'id, nome, canal, cidade, whatsapp, condicao_padrao, cadencia_declarada_dias, ativo, vendedor_id',
+        )
         .order('nome')
       if (error) throw new Error(error.message)
       return (data as LinhaCliente[]).map(mapear)
@@ -65,6 +70,7 @@ export function useSalvarCliente() {
         condicao_padrao: cliente.condicaoPadrao,
         cadencia_declarada_dias: cliente.cadenciaDeclaradaDias,
         ativo: cliente.ativo,
+        ...(cliente.vendedorId ? { vendedor_id: cliente.vendedorId } : {}),
       }
       const resposta = cliente.id
         ? await supabase.from('clientes').update(linha).eq('id', cliente.id)

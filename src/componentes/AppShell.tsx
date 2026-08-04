@@ -6,6 +6,7 @@ const ABAS = [
   { para: '/clientes', rotulo: 'Clientes' },
   { para: '/painel', rotulo: 'Painel' },
   { para: '/precos', rotulo: 'Preços', soAdmin: true },
+  { para: '/equipe', rotulo: 'Equipe', soAdmin: true },
 ]
 
 export function AppShell() {
