@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   diasParado,
   diasRestantes,
+  pendenciaConsignado,
   previsaoReposicao,
   saldoKg,
   saldoPorSku,
+  situacaoPeloPrazo,
   vendaApuradaDiariaKg,
   type MovConsignado,
 } from './consignado'
@@ -120,5 +122,100 @@ describe('previsaoReposicao', () => {
       { sku: '500g', tipo: 'venda_apurada', qtdPacotes: 30, data: '2026-07-21' },
     ]
     expect(previsaoReposicao(inconsistente, '2026-07-21')).toBe('2026-07-21')
+  })
+})
+
+describe('situacaoPeloPrazo', () => {
+  it('vencido ha 3 dias', () => {
+    expect(situacaoPeloPrazo('2026-07-28', '2026-07-31')).toEqual({
+      diasParaPrazo: -3,
+      situacao: 'vencido',
+    })
+  })
+
+  it('vence hoje conta como vence_em_breve', () => {
+    expect(situacaoPeloPrazo('2026-07-31', '2026-07-31')).toEqual({
+      diasParaPrazo: 0,
+      situacao: 'vence_em_breve',
+    })
+  })
+
+  it('vence no limite de 7 dias ainda e vence_em_breve', () => {
+    expect(situacaoPeloPrazo('2026-08-07', '2026-07-31')).toEqual({
+      diasParaPrazo: 7,
+      situacao: 'vence_em_breve',
+    })
+  })
+
+  it('vence em 8 dias vira em_dia', () => {
+    expect(situacaoPeloPrazo('2026-08-08', '2026-07-31')).toEqual({
+      diasParaPrazo: 8,
+      situacao: 'em_dia',
+    })
+  })
+
+  it('sem prazo devolve sem_prazo', () => {
+    expect(situacaoPeloPrazo(null, '2026-07-31')).toEqual({
+      diasParaPrazo: null,
+      situacao: 'sem_prazo',
+    })
+  })
+})
+
+describe('pendenciaConsignado', () => {
+  it('vencido ha 3 dias', () => {
+    const pendencia = pendenciaConsignado(MOVS, '2026-07-28', '2026-07-31')
+    expect(pendencia.situacao).toBe('vencido')
+    expect(pendencia.diasParaPrazo).toBe(-3)
+  })
+
+  it('vence hoje (diasParaPrazo = 0) conta como vence_em_breve', () => {
+    const pendencia = pendenciaConsignado(MOVS, '2026-07-31', '2026-07-31')
+    expect(pendencia.situacao).toBe('vence_em_breve')
+    expect(pendencia.diasParaPrazo).toBe(0)
+  })
+
+  it('vence no limite de 7 dias ainda e vence_em_breve', () => {
+    const pendencia = pendenciaConsignado(MOVS, '2026-08-07', '2026-07-31')
+    expect(pendencia.situacao).toBe('vence_em_breve')
+    expect(pendencia.diasParaPrazo).toBe(7)
+  })
+
+  it('vence em 8 dias vira em_dia', () => {
+    const pendencia = pendenciaConsignado(MOVS, '2026-08-08', '2026-07-31')
+    expect(pendencia.situacao).toBe('em_dia')
+    expect(pendencia.diasParaPrazo).toBe(8)
+  })
+
+  it('sem prazo devolve situacao sem_prazo e nao quebra', () => {
+    const pendencia = pendenciaConsignado(MOVS, null, '2026-07-31')
+    expect(pendencia.situacao).toBe('sem_prazo')
+    expect(pendencia.diasParaPrazo).toBeNull()
+  })
+
+  it('reusa saldo e giro ja testados em vez de duplicar a conta', () => {
+    const pendencia = pendenciaConsignado(MOVS, '2026-08-07', '2026-07-31')
+    expect(pendencia.saldoKg).toBe(saldoKg(MOVS))
+    expect(pendencia.saldoPorSku).toEqual(saldoPorSku(MOVS))
+    expect(pendencia.diasParado).toBe(diasParado(MOVS, '2026-07-31'))
+    expect(pendencia.previsaoAcabar).toBe(previsaoReposicao(MOVS, '2026-07-31'))
+  })
+
+  it('saldo zerado nao estoura', () => {
+    const zerado: MovConsignado[] = [
+      { sku: '500g', tipo: 'entrega', qtdPacotes: 20, data: '2026-07-01' },
+      { sku: '500g', tipo: 'venda_apurada', qtdPacotes: 20, data: '2026-07-21' },
+    ]
+    const pendencia = pendenciaConsignado(zerado, '2026-08-01', '2026-07-31')
+    expect(pendencia.saldoKg).toBe(0)
+    expect(pendencia.saldoPorSku).toEqual({ '250g': 0, '500g': 0 })
+    expect(pendencia.situacao).toBe('vence_em_breve')
+  })
+
+  it('sem nenhum movimento tambem nao estoura', () => {
+    const pendencia = pendenciaConsignado([], '2026-08-07', '2026-07-31')
+    expect(pendencia.saldoKg).toBe(0)
+    expect(pendencia.diasParado).toBeNull()
+    expect(pendencia.previsaoAcabar).toBeNull()
   })
 })

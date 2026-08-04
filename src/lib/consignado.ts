@@ -73,3 +73,51 @@ export function previsaoReposicao(movs: MovConsignado[], hoje: string): string |
   if (dias === null) return null
   return addDias(hoje, dias)
 }
+
+export type SituacaoConsignado = 'em_dia' | 'vence_em_breve' | 'vencido' | 'sem_prazo'
+export const DIAS_ALERTA_CONSIGNADO = 7
+
+/** Situação do prazo isolada do saldo — usada tanto no cálculo cheio quanto na tela de pendências. */
+export function situacaoPeloPrazo(
+  prazoRetorno: string | null,
+  hoje: string,
+): { diasParaPrazo: number | null; situacao: SituacaoConsignado } {
+  if (prazoRetorno === null) return { diasParaPrazo: null, situacao: 'sem_prazo' }
+  const diasParaPrazo = diffDias(hoje, prazoRetorno)
+  const situacao: SituacaoConsignado =
+    diasParaPrazo < 0
+      ? 'vencido'
+      : diasParaPrazo <= DIAS_ALERTA_CONSIGNADO
+        ? 'vence_em_breve'
+        : 'em_dia'
+  return { diasParaPrazo, situacao }
+}
+
+export interface PendenciaConsignado {
+  saldoKg: number
+  saldoPorSku: Record<Sku, number>
+  prazoRetorno: string | null
+  /** positivo = ainda falta; negativo = atrasado. */
+  diasParaPrazo: number | null
+  situacao: SituacaoConsignado
+  diasParado: number | null
+  previsaoAcabar: string | null
+}
+
+/** Junta saldo, prazo e giro do consignado num objeto só — a régua completa de uma pendência. */
+export function pendenciaConsignado(
+  movs: MovConsignado[],
+  prazoRetorno: string | null,
+  hoje: string,
+): PendenciaConsignado {
+  const { diasParaPrazo, situacao } = situacaoPeloPrazo(prazoRetorno, hoje)
+  return {
+    saldoKg: saldoKg(movs),
+    saldoPorSku: saldoPorSku(movs),
+    prazoRetorno,
+    diasParaPrazo,
+    situacao,
+    diasParado: diasParado(movs, hoje),
+    previsaoAcabar: previsaoReposicao(movs, hoje),
+  }
+}
