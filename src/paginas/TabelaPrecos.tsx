@@ -1,56 +1,54 @@
 import { useState } from 'react'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
-import { useSalvarFaixas, usePrecos, type NovaFaixa } from '@/hooks/usePrecos'
+import { usePrecosProdutos, useSalvarFaixasProduto, type NovaFaixaProduto } from '@/hooks/usePrecos'
+import { useProdutos } from '@/hooks/useProdutos'
 import { hojeIso } from '@/lib/data'
 import { dataLonga, reais } from '@/lib/formato'
 import { paraNumero } from '@/lib/numero'
-import { MULTIPLO_KG, validarFaixas } from '@/lib/preco'
-import { SKUS, type FaixaPreco, type Sku } from '@/lib/tipos'
+import { MULTIPLO_KG, validarFaixasProduto, type FaixaProduto } from '@/lib/preco'
+import type { Produto } from '@/lib/tipos'
 
 interface LinhaForm {
-  sku: Sku
+  produtoId: string
   kgMin: string
   kgMax: string
   precoUnit: string
 }
 
 /**
- * Faixas em vigor hoje: para cada SKU, acha a maior vigenteDesde <= hoje e devolve
- * só as faixas daquela data — nunca mistura faixas de versões diferentes do mesmo SKU.
+ * Faixas em vigor hoje: para cada produto, acha a maior vigenteDesde <= hoje e devolve
+ * só as faixas daquela data — nunca mistura faixas de versões diferentes do mesmo produto.
  */
-function vigentesHoje(faixas: FaixaPreco[], hoje: string): FaixaPreco[] {
+function vigentesHoje(faixas: FaixaProduto[], hoje: string): FaixaProduto[] {
   const jaVigentes = faixas.filter((f) => f.vigenteDesde <= hoje)
-  const versaoPorSku = new Map<string, string>()
+  const versaoPorProduto = new Map<string, string>()
   for (const faixa of jaVigentes) {
-    const atual = versaoPorSku.get(faixa.sku)
-    if (!atual || faixa.vigenteDesde > atual) versaoPorSku.set(faixa.sku, faixa.vigenteDesde)
+    const atual = versaoPorProduto.get(faixa.produtoId)
+    if (!atual || faixa.vigenteDesde > atual) versaoPorProduto.set(faixa.produtoId, faixa.vigenteDesde)
   }
-  return jaVigentes
-    .filter((f) => f.vigenteDesde === versaoPorSku.get(f.sku))
-    .sort((a, b) => a.sku.localeCompare(b.sku) || a.kgMin - b.kgMin)
+  return jaVigentes.filter((f) => f.vigenteDesde === versaoPorProduto.get(f.produtoId))
 }
 
 /**
- * Normaliza faixas legado (ex.: 0–10, 10.001–50) para a grade fechada de 5 em 5: arredonda
- * cada teto para o múltiplo de 5 mais próximo, força a primeira faixa a começar em
- * MULTIPLO_KG e reconstrói a contiguidade (piso seguinte = teto anterior + MULTIPLO_KG),
- * preservando o preço de cada faixa na sua posição original.
+ * Normaliza faixas legado (ex.: 0–10, 10.001–50) para a grade fechada de 5 em 5, por produto:
+ * arredonda cada teto para o múltiplo de 5 mais próximo, força a primeira faixa a começar em
+ * MULTIPLO_KG e reconstrói a contiguidade, preservando o preço de cada faixa na sua posição.
  */
-function normalizarParaGrade5(faixas: FaixaPreco[]): LinhaForm[] {
+function normalizarParaGrade5(faixas: FaixaProduto[], produtos: Produto[]): LinhaForm[] {
   const arredondar5 = (kg: number) => Math.round(kg / MULTIPLO_KG) * MULTIPLO_KG
 
   const linhas: LinhaForm[] = []
-  for (const sku of SKUS) {
-    const doSku = faixas.filter((f) => f.sku === sku).sort((a, b) => a.kgMin - b.kgMin)
-    if (doSku.length === 0) continue
+  for (const produto of produtos) {
+    const doProduto = faixas.filter((f) => f.produtoId === produto.id).sort((a, b) => a.kgMin - b.kgMin)
+    if (doProduto.length === 0) continue
 
     let piso = MULTIPLO_KG
-    doSku.forEach((faixa, indice) => {
-      const ultima = indice === doSku.length - 1
+    doProduto.forEach((faixa, indice) => {
+      const ultima = indice === doProduto.length - 1
       const tetoArredondado = faixa.kgMax === null ? piso : arredondar5(faixa.kgMax)
       const teto = ultima ? null : Math.max(tetoArredondado, piso + MULTIPLO_KG)
       linhas.push({
-        sku,
+        produtoId: produto.id,
         kgMin: String(piso),
         kgMax: teto === null ? '' : String(teto),
         precoUnit: String(faixa.precoUnit),
@@ -62,38 +60,45 @@ function normalizarParaGrade5(faixas: FaixaPreco[]): LinhaForm[] {
 }
 
 export default function TabelaPrecos() {
-  const { data: faixas, isLoading, error } = usePrecos()
-  const salvar = useSalvarFaixas()
+  const { data: faixas, isLoading: carregandoFaixas, error: erroFaixas } = usePrecosProdutos()
+  const { data: produtos, isLoading: carregandoProdutos, error: erroProdutos } = useProdutos()
+  const salvar = useSalvarFaixasProduto()
   const [vigenteDesde, setVigenteDesde] = useState(hojeIso())
   const [linhas, setLinhas] = useState<LinhaForm[]>([])
   const [erroForm, setErroForm] = useState<string | null>(null)
 
-  if (isLoading) return <Carregando />
-  if (error) return <Erro mensagem={error.message} />
+  if (carregandoFaixas || carregandoProdutos) return <Carregando />
+  if (erroFaixas) return <Erro mensagem={erroFaixas.message} />
+  if (erroProdutos) return <Erro mensagem={erroProdutos.message} />
 
-  const emVigor = vigentesHoje(faixas ?? [], hojeIso())
+  const listaProdutos = produtos ?? []
+  const nomeProduto = (produtoId: string) => listaProdutos.find((p) => p.id === produtoId)?.nome ?? produtoId
+
+  const emVigor = vigentesHoje(faixas ?? [], hojeIso()).sort(
+    (a, b) => nomeProduto(a.produtoId).localeCompare(nomeProduto(b.produtoId)) || a.kgMin - b.kgMin,
+  )
   const jaExisteNaData = (faixas ?? []).some((f) => f.vigenteDesde === vigenteDesde)
 
   function carregarDoAtual() {
-    setLinhas(normalizarParaGrade5(emVigor))
+    setLinhas(normalizarParaGrade5(emVigor, listaProdutos))
   }
 
   function adicionarLinha() {
-    setLinhas([...linhas, { sku: '250g', kgMin: '', kgMax: '', precoUnit: '' }])
+    setLinhas([...linhas, { produtoId: listaProdutos[0]?.id ?? '', kgMin: '', kgMax: '', precoUnit: '' }])
   }
 
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
     setErroForm(null)
-    const novas: NovaFaixa[] = linhas.map((linha) => ({
-      sku: linha.sku,
+    const novas: NovaFaixaProduto[] = linhas.map((linha) => ({
+      produtoId: linha.produtoId,
       kgMin: paraNumero(linha.kgMin),
       kgMax: linha.kgMax === '' ? null : paraNumero(linha.kgMax),
       precoUnit: paraNumero(linha.precoUnit),
       vigenteDesde,
     }))
 
-    const erro = validarFaixas(novas)
+    const erro = validarFaixasProduto(novas, listaProdutos)
     if (erro) {
       setErroForm(erro)
       return
@@ -113,7 +118,7 @@ export default function TabelaPrecos() {
           <table className="mt-3 w-full overflow-hidden rounded-xl bg-white text-sm tabular-nums shadow">
             <thead className="bg-stone-100 text-left">
               <tr>
-                <th className="p-2">Pacote</th>
+                <th className="p-2">Produto</th>
                 <th className="p-2">Faixa (kg do pedido)</th>
                 <th className="p-2">Preço</th>
                 <th className="p-2">Desde</th>
@@ -122,7 +127,7 @@ export default function TabelaPrecos() {
             <tbody>
               {emVigor.map((faixa) => (
                 <tr key={faixa.id} className="border-t border-stone-200">
-                  <td className="p-2">{faixa.sku}</td>
+                  <td className="p-2">{nomeProduto(faixa.produtoId)}</td>
                   <td className="p-2">
                     {faixa.kgMin} – {faixa.kgMax === null ? 'sem teto' : faixa.kgMax}
                   </td>
@@ -164,7 +169,8 @@ export default function TabelaPrecos() {
           <button
             type="button"
             onClick={adicionarLinha}
-            className="min-h-11 rounded-lg border border-stone-300 px-3 text-sm"
+            disabled={listaProdutos.length === 0}
+            className="min-h-11 rounded-lg border border-stone-300 px-3 text-sm disabled:opacity-50"
           >
             + Faixa
           </button>
@@ -178,17 +184,17 @@ export default function TabelaPrecos() {
         {linhas.map((linha, indice) => (
           <div key={indice} className="grid grid-cols-4 gap-2">
             <select
-              value={linha.sku}
+              value={linha.produtoId}
               onChange={(e) => {
                 const copia = [...linhas]
-                copia[indice] = { ...linha, sku: e.target.value as Sku }
+                copia[indice] = { ...linha, produtoId: e.target.value }
                 setLinhas(copia)
               }}
-              className="rounded-lg border border-stone-300 px-2 py-3"
+              className="rounded-lg border border-stone-300 px-2 py-3 text-sm"
             >
-              {SKUS.map((sku) => (
-                <option key={sku} value={sku}>
-                  {sku}
+              {listaProdutos.map((produto) => (
+                <option key={produto.id} value={produto.id}>
+                  {produto.nome}
                 </option>
               ))}
             </select>

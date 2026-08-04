@@ -2,32 +2,102 @@ import { useEffect, useMemo, useState } from 'react'
 import { Carregando, Erro } from '@/componentes/Estado'
 import { useClientes } from '@/hooks/useClientes'
 import { useCriarPedido } from '@/hooks/usePedidos'
-import { usePrecos } from '@/hooks/usePrecos'
+import { usePrecosProdutos } from '@/hooks/usePrecos'
+import { useProdutos } from '@/hooks/useProdutos'
 import { addDias, hojeIso } from '@/lib/data'
 import { dataLonga, kgTexto, reais } from '@/lib/formato'
 import { arredondar2, paraNumero } from '@/lib/numero'
-import { ehMultiploValido, kgMaisProximos, kgTotal, precificar, totalPedido } from '@/lib/preco'
+import {
+  ehMultiploValido,
+  kgMaisProximos,
+  kgTotalProdutos,
+  precificarProdutos,
+  totalPedidoProdutos,
+  type FaixaProduto,
+  type ItemProdutoInput,
+  type ItemProdutoPrecificado,
+} from '@/lib/preco'
 import { vencimentos } from '@/lib/prazo'
-import { oportunidadeFaixa, type OportunidadeFaixa } from '@/lib/recompra'
-import { KG_POR_SKU, ROTULO_CONDICAO, SKUS, type CondicaoPagamento, type ItemPrecificado, type Sku } from '@/lib/tipos'
+import { oportunidadeFaixaProduto } from '@/lib/recompra'
+import { ROTULO_CONDICAO, type CondicaoPagamento, type Produto } from '@/lib/tipos'
 
-/** Quantos pacotes desse SKU, sozinho, fecham o múltiplo de 5 kg — ajuda o vendedor a acertar. */
-function pacotesPara5kg(sku: Sku): number {
-  return 5 / KG_POR_SKU[sku]
+/** Placeholder neutro quando o produto não tem foto — mesmo desenho da tela de Produtos. */
+function FotoMiniatura({ produto }: { produto: Produto }) {
+  if (produto.fotoUrl) {
+    return (
+      <img
+        src={produto.fotoUrl}
+        alt={`Foto do produto ${produto.nome}`}
+        loading="lazy"
+        className="aspect-square h-12 w-12 shrink-0 rounded-lg object-cover sm:h-14 sm:w-14"
+      />
+    )
+  }
+  return (
+    <div
+      role="img"
+      aria-label={`${produto.nome} — sem foto`}
+      className="flex aspect-square h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-400 sm:h-14 sm:w-14"
+    >
+      <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+        <rect x="5" y="8" width="14" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M8 8 V6 a4 4 0 0 1 8 0 v2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      </svg>
+    </div>
+  )
+}
+
+function ControleQuantidade({
+  valor,
+  onChange,
+}: {
+  valor: string
+  onChange: (novo: string) => void
+}) {
+  const numero = Number(valor) || 0
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => onChange(String(Math.max(0, numero - 1)))}
+        aria-label="Diminuir quantidade"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-stone-300 text-lg font-semibold text-stone-700"
+      >
+        −
+      </button>
+      <input
+        type="number"
+        min={0}
+        inputMode="numeric"
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-11 w-14 rounded-lg border border-stone-300 text-center text-lg"
+      />
+      <button
+        type="button"
+        onClick={() => onChange(String(numero + 1))}
+        aria-label="Aumentar quantidade"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-stone-300 text-lg font-semibold text-stone-700"
+      >
+        +
+      </button>
+    </div>
+  )
 }
 
 export default function NovoPedido() {
   const { data: clientes, isLoading: carregandoClientes, error: erroClientes } = useClientes()
-  const { data: faixas, isLoading: carregandoPrecos, error: erroPrecos } = usePrecos()
+  const { data: produtos, isLoading: carregandoProdutos, error: erroProdutos } = useProdutos()
+  const { data: faixas, isLoading: carregandoPrecos, error: erroPrecos } = usePrecosProdutos()
   const criar = useCriarPedido()
 
   const [clienteId, setClienteId] = useState('')
   const [data, setData] = useState(hojeIso())
-  const [quantidades, setQuantidades] = useState<Record<Sku, string>>({ '250g': '', '500g': '' })
+  const [quantidades, setQuantidades] = useState<Record<string, string>>({})
   const [condicao, setCondicao] = useState<CondicaoPagamento | ''>('')
   const [observacao, setObservacao] = useState('')
   const [ajustando, setAjustando] = useState(false)
-  const [precosManuais, setPrecosManuais] = useState<Record<Sku, string>>({ '250g': '', '500g': '' })
+  const [precosManuais, setPrecosManuais] = useState<Record<string, string>>({})
   const [salvo, setSalvo] = useState<string | null>(null)
 
   const cliente = (clientes ?? []).find((c) => c.id === clienteId) ?? null
@@ -40,16 +110,18 @@ export default function NovoPedido() {
     setPrazoRetorno(addDias(data, cliente?.prazoConsignadoDias ?? 30))
   }, [data, cliente?.id, cliente?.prazoConsignadoDias])
 
-  const itensInput = SKUS.map((sku) => ({ sku, qtdPacotes: Number(quantidades[sku]) || 0 })).filter(
-    (item) => item.qtdPacotes > 0,
-  )
+  const produtosAtivos = useMemo(() => (produtos ?? []).filter((p) => p.ativo), [produtos])
+
+  const itensInput: ItemProdutoInput[] = produtosAtivos
+    .map((p) => ({ produtoId: p.id, qtdPacotes: Number(quantidades[p.id]) || 0 }))
+    .filter((item) => item.qtdPacotes > 0)
 
   const calculo = useMemo(() => {
-    if (!faixas || itensInput.length === 0) return null
+    if (!faixas || !produtos || itensInput.length === 0) return null
     try {
-      const daTabela = precificar(itensInput, faixas, data)
-      const itens: ItemPrecificado[] = daTabela.map((item) => {
-        const manual = paraNumero(precosManuais[item.sku])
+      const daTabela = precificarProdutos(itensInput, produtos, faixas, data)
+      const itens: ItemProdutoPrecificado[] = daTabela.map((item) => {
+        const manual = paraNumero(precosManuais[item.produtoId] ?? '')
         if (!ajustando || !manual || manual <= 0) return item
         const precoUnit = arredondar2(manual)
         return {
@@ -58,30 +130,33 @@ export default function NovoPedido() {
           subtotal: arredondar2(precoUnit * item.qtdPacotes),
         }
       })
-      return { itens, total: totalPedido(itens), tabela: daTabela }
+      return { itens, total: totalPedidoProdutos(itens, produtos), tabela: daTabela }
     } catch (e) {
       return { erro: e instanceof Error ? e.message : 'Erro no cálculo' } as const
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faixas, JSON.stringify(itensInput), data, ajustando, JSON.stringify(precosManuais)])
+  }, [faixas, produtos, JSON.stringify(itensInput), data, ajustando, JSON.stringify(precosManuais)])
 
-  const kg = kgTotal(itensInput)
-  // oportunidade so faz sentido para os SKUs que estao no pedido; com mais de um,
-  // mostra o de maior economia por pacote em vez de fixar um SKU que pode nem estar no carrinho
+  const kg = produtos ? kgTotalProdutos(itensInput, produtos) : 0
+
+  // oportunidade pelo produto de MAIOR PESO presente no pedido — é o que mais pesa na faixa
+  const produtoDeMaiorPeso = useMemo(() => {
+    if (itensInput.length === 0 || !produtos) return null
+    return itensInput.reduce<{ produtoId: string; pesoKg: number } | null>((melhor, item) => {
+      const produto = produtos.find((p) => p.id === item.produtoId)
+      if (!produto) return melhor
+      if (!melhor || produto.pesoKg > melhor.pesoKg) return { produtoId: item.produtoId, pesoKg: produto.pesoKg }
+      return melhor
+    }, null)
+  }, [itensInput, produtos])
+
   const oportunidade = useMemo(() => {
-    if (!faixas || kg <= 0) return null
-    const candidatas = itensInput
-      .map((item) => {
-        const o = oportunidadeFaixa(faixas, item.sku, kg, data)
-        return o ? { ...o, sku: item.sku } : null
-      })
-      .filter((o): o is OportunidadeFaixa & { sku: Sku } => o !== null)
-    if (candidatas.length === 0) return null
-    return candidatas.reduce((melhor, atual) =>
-      atual.economiaPorPacote > melhor.economiaPorPacote ? atual : melhor,
-    )
+    if (!faixas || !produtoDeMaiorPeso || kg <= 0) return null
+    return oportunidadeFaixaProduto(faixas as FaixaProduto[], produtoDeMaiorPeso.produtoId, kg, data)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [faixas, JSON.stringify(itensInput), kg, data])
+  }, [faixas, produtoDeMaiorPeso, kg, data])
+
+  const nomeProduto = (produtoId: string) => produtos?.find((p) => p.id === produtoId)?.nome ?? produtoId
 
   async function enviar(evento: React.FormEvent) {
     evento.preventDefault()
@@ -98,14 +173,15 @@ export default function NovoPedido() {
       prazoRetorno: condicaoEfetiva === 'consignado' ? prazoRetorno : null,
     })
     setSalvo(id)
-    setQuantidades({ '250g': '', '500g': '' })
-    setPrecosManuais({ '250g': '', '500g': '' })
+    setQuantidades({})
+    setPrecosManuais({})
     setObservacao('')
     setAjustando(false)
   }
 
-  if (carregandoClientes || carregandoPrecos) return <Carregando />
+  if (carregandoClientes || carregandoProdutos || carregandoPrecos) return <Carregando />
   if (erroClientes) return <Erro mensagem={erroClientes.message} />
+  if (erroProdutos) return <Erro mensagem={erroProdutos.message} />
   if (erroPrecos) return <Erro mensagem={erroPrecos.message} />
 
   const ativos = (clientes ?? []).filter((c) => c.ativo)
@@ -140,24 +216,35 @@ export default function NovoPedido() {
         className="w-full rounded-lg border border-stone-300 px-3 py-3"
       />
 
-      <div className="grid grid-cols-2 gap-3">
-        {SKUS.map((sku) => (
-          <label key={sku} className="text-sm text-stone-600">
-            Pacotes de {sku}
-            <input
-              type="number"
-              min={0}
-              inputMode="numeric"
-              value={quantidades[sku]}
-              onChange={(e) => setQuantidades({ ...quantidades, [sku]: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3 text-lg"
-            />
-            <span className="mt-1 block text-xs text-stone-600">
-              {pacotesPara5kg(sku)} pacotes = {kgTexto(5)}
-            </span>
-          </label>
-        ))}
-      </div>
+      {produtosAtivos.length === 0 ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Nenhum produto ativo cadastrado. Cadastre em Mais → Produtos antes de lançar um pedido.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {produtosAtivos.map((produto) => {
+            const item = calculo && !('erro' in calculo) ? calculo.itens.find((i) => i.produtoId === produto.id) : null
+            return (
+              <li key={produto.id} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow">
+                <FotoMiniatura produto={produto} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{produto.nome}</p>
+                  <p className="text-xs text-stone-600">{kgTexto(produto.pesoKg)} por pacote</p>
+                  {item && (
+                    <p className="mt-1 text-sm tabular-nums text-stone-700">
+                      {item.qtdPacotes} × {reais(item.precoUnit)} = <strong>{reais(item.subtotal)}</strong>
+                    </p>
+                  )}
+                </div>
+                <ControleQuantidade
+                  valor={quantidades[produto.id] ?? ''}
+                  onChange={(v) => setQuantidades({ ...quantidades, [produto.id]: v })}
+                />
+              </li>
+            )
+          })}
+        </ul>
+      )}
 
       <div className="rounded-xl bg-white p-4 shadow">
         <p className="text-sm text-stone-700">Volume do pedido</p>
@@ -179,23 +266,6 @@ export default function NovoPedido() {
 
         {calculo && !('erro' in calculo) && (
           <>
-            <ul className="mt-3 space-y-1 text-sm tabular-nums">
-              {calculo.itens.map((item) => {
-                const daTabela = calculo.tabela.find((t) => t.sku === item.sku)
-                const alterado = daTabela && daTabela.precoUnit !== item.precoUnit
-                return (
-                  <li key={item.sku} className="flex justify-between">
-                    <span>
-                      {item.qtdPacotes} × {item.sku} a {reais(item.precoUnit)}
-                      {alterado && (
-                        <span className="text-amber-700"> (tabela {reais(daTabela!.precoUnit)})</span>
-                      )}
-                    </span>
-                    <span>{reais(item.subtotal)}</span>
-                  </li>
-                )
-              })}
-            </ul>
             <p className="mt-3 text-2xl font-bold tabular-nums">{reais(calculo.total.totalValor)}</p>
             {vencimentos(data, condicaoEfetiva, calculo.total.totalValor).length > 0 && (
               <p className="text-sm text-stone-700">
@@ -208,10 +278,11 @@ export default function NovoPedido() {
           </>
         )}
 
-        {oportunidade && (
+        {oportunidade && produtoDeMaiorPeso && (
           <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm tabular-nums text-amber-900">
-            Faltam {kgTexto(oportunidade.kgFaltando)} para o pacote de {oportunidade.sku} cair de{' '}
-            {reais(oportunidade.precoAtual)} para {reais(oportunidade.precoMelhor)}.
+            Faltam {kgTexto(oportunidade.kgFaltando)} para o pacote de{' '}
+            {nomeProduto(produtoDeMaiorPeso.produtoId)} cair de {reais(oportunidade.precoAtual)} para{' '}
+            {reais(oportunidade.precoMelhor)}.
           </p>
         )}
       </div>
@@ -251,19 +322,23 @@ export default function NovoPedido() {
           <p className="text-sm text-amber-900">
             O desconto concedido aparece no painel como preço realizado abaixo da tabela.
           </p>
-          {SKUS.map((sku) => (
-            <label key={sku} className="block text-sm">
-              Preço do {sku}
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={precosManuais[sku]}
-                onChange={(e) => setPrecosManuais({ ...precosManuais, [sku]: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
-              />
-            </label>
-          ))}
+          {itensInput.length === 0 ? (
+            <p className="text-sm text-amber-900">Escolha a quantidade de um produto para ajustar o preço.</p>
+          ) : (
+            itensInput.map((item) => (
+              <label key={item.produtoId} className="block text-sm">
+                Preço do {nomeProduto(item.produtoId)}
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={precosManuais[item.produtoId] ?? ''}
+                  onChange={(e) => setPrecosManuais({ ...precosManuais, [item.produtoId]: e.target.value })}
+                  className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
+                />
+              </label>
+            ))
+          )}
         </div>
       )}
 

@@ -8,6 +8,7 @@ import {
   type CondicaoPagamento,
   type FaixaPreco,
   type ItemPrecificado,
+  type Produto,
   type Sku,
   type StatusPedido,
 } from './tipos'
@@ -70,6 +71,9 @@ export function precoRealizadoVsTabela(
 
   for (const pedido of pedidos) {
     for (const item of pedido.itens) {
+      // produto novo (sem sku legado) não tem faixa nessa tabela por SKU — fica de fora
+      // desta métrica legada; ver mixPorProduto para o indicador que já cobre produto novo
+      if (!item.sku) continue
       const faixa = faixaVigente(faixas, item.sku, pedido.totalKg, pedido.data)
       if (!faixa) continue
       kg += KG_POR_SKU[item.sku] * item.qtdPacotes
@@ -101,6 +105,45 @@ export function mixPorSku(
       receita: arredondar2(itens.reduce((soma, item) => soma + item.subtotal, 0)),
     }
   })
+}
+
+/**
+ * Mix por produto: equivalente a mixPorSku, mas agrupando pelo produto_id do item
+ * (todo item de pedido_itens tem produto_id). Quando um item só tiver sku (registro
+ * legado sem produto_id resolvido), agrupa pelo rótulo do sku pra não sumir a venda.
+ */
+export function mixPorProduto(
+  pedidos: PedidoMetrica[],
+  produtos: Produto[],
+): { produtoId: string | null; nome: string; pacotes: number; kg: number; receita: number }[] {
+  interface Grupo {
+    produtoId: string | null
+    nome: string
+    pacotes: number
+    kg: number
+    receita: number
+  }
+  const grupos = new Map<string, Grupo>()
+
+  for (const pedido of pedidos) {
+    for (const item of pedido.itens) {
+      const produtoId = item.produtoId ?? null
+      const produto = produtoId ? produtos.find((p) => p.id === produtoId) : undefined
+      const pesoKg = produto?.pesoKg ?? (item.sku ? KG_POR_SKU[item.sku] : null)
+      if (pesoKg === null) continue // sem produto e sem sku: não há peso para calcular kg
+      const chave = produtoId ?? `sku:${item.sku}`
+      const nome = produto?.nome ?? item.sku ?? 'Produto removido'
+      const atual = grupos.get(chave) ?? { produtoId, nome, pacotes: 0, kg: 0, receita: 0 }
+      atual.pacotes += item.qtdPacotes
+      atual.kg += pesoKg * item.qtdPacotes
+      atual.receita += item.subtotal
+      grupos.set(chave, atual)
+    }
+  }
+
+  return [...grupos.values()]
+    .map((g) => ({ ...g, kg: arredondar2(g.kg), receita: arredondar2(g.receita) }))
+    .sort((a, b) => b.receita - a.receita)
 }
 
 export function seriePorSemana(

@@ -5,6 +5,7 @@ import {
   comparativoPeriodo,
   janelaAnterior,
   janelaPeriodo,
+  mixPorProduto,
   mixPorSku,
   noPeriodo,
   porCanal,
@@ -14,7 +15,7 @@ import {
   seriePorSemana,
   type PedidoMetrica,
 } from './metricas-venda'
-import type { FaixaPreco } from './tipos'
+import type { FaixaPreco, Produto } from './tipos'
 
 const FAIXAS: FaixaPreco[] = [
   { id: 'b2', sku: '500g', kgMin: 10.001, kgMax: 50, precoUnit: 20, vigenteDesde: '2026-01-01' },
@@ -111,6 +112,39 @@ describe('mixPorSku', () => {
     expect(mixPorSku(apenasValidos(PEDIDOS))).toEqual([
       { sku: '250g', pacotes: 0, kg: 0, receita: 0 },
       { sku: '500g', pacotes: 80, kg: 40, receita: 1520 },
+    ])
+  })
+})
+
+describe('mixPorProduto', () => {
+  const PRODUTOS: Produto[] = [
+    {
+      id: 'prod-500',
+      nome: 'Café Torrão 500g',
+      descricao: null,
+      pesoKg: 0.5,
+      fotoUrl: null,
+      skuLegado: '500g',
+      ativo: true,
+      ordem: 2,
+    },
+  ]
+
+  it('agrupa pelo produto_id e mostra o NOME do produto', () => {
+    const pedidos: PedidoMetrica[] = PEDIDOS.map((p) => ({
+      ...p,
+      itens: p.itens.map((item) => ({ ...item, produtoId: item.sku === '500g' ? 'prod-500' : null })),
+    }))
+    expect(mixPorProduto(apenasValidos(pedidos), PRODUTOS)).toEqual([
+      { produtoId: 'prod-500', nome: 'Café Torrão 500g', pacotes: 80, kg: 40, receita: 1520 },
+    ])
+  })
+
+  it('registro sem produto_id (so sku) cai no rotulo do sku, nao some da lista', () => {
+    // simula um item historico sem produto_id resolvido ainda
+    const pedidos: PedidoMetrica[] = [{ ...PEDIDOS[0], itens: [{ sku: '500g', qtdPacotes: 10, precoUnit: 20, subtotal: 200 }] }]
+    expect(mixPorProduto(pedidos, [])).toEqual([
+      { produtoId: null, nome: '500g', pacotes: 10, kg: 5, receita: 200 },
     ])
   })
 })

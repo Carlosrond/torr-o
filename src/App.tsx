@@ -13,6 +13,7 @@ import Login from '@/paginas/Login'
 import Mais from '@/paginas/Mais'
 import NovoPedido from '@/paginas/NovoPedido'
 import Painel from '@/paginas/Painel'
+import Produtos from '@/paginas/Produtos'
 import TabelaPrecos from '@/paginas/TabelaPrecos'
 
 const queryClient = new QueryClient({
@@ -46,6 +47,14 @@ export default function App() {
                 element={
                   <RotaProtegida soAdmin>
                     <TabelaPrecos />
+                  </RotaProtegida>
+                }
+              />
+              <Route
+                path="/produtos"
+                element={
+                  <RotaProtegida soAdmin>
+                    <Produtos />
                   </RotaProtegida>
                 }
               />

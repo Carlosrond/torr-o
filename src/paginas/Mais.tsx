@@ -25,6 +25,14 @@ export default function Mais() {
         </li>
         {papel === 'admin' && (
           <li>
+            <Link to="/produtos" className="block min-h-[44px] p-4">
+              <p className="font-medium">Produtos</p>
+              <p className="text-sm text-stone-700">Catálogo, foto, peso e ativo/inativo.</p>
+            </Link>
+          </li>
+        )}
+        {papel === 'admin' && (
+          <li>
             <Link to="/precos" className="block min-h-[44px] p-4">
               <p className="font-medium">Preços</p>
               <p className="text-sm text-stone-700">Tabela de preços por faixa de kg.</p>

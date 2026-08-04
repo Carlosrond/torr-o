@@ -1,6 +1,6 @@
 import { addDias, diffDias } from './data'
 import { arredondar2 } from './numero'
-import { faixaVigente, proximaFaixa } from './preco'
+import { faixaVigente, faixaVigenteProduto, proximaFaixa, proximaFaixaProduto, type FaixaProduto } from './preco'
 import type { FaixaPreco, Sku } from './tipos'
 
 export interface PedidoHistorico {
@@ -159,6 +159,24 @@ export function oportunidadeFaixa(
 ): OportunidadeFaixa | null {
   const atual = faixaVigente(faixas, sku, kgTipico, data)
   const melhor = proximaFaixa(faixas, sku, kgTipico, data)
+  if (!atual || !melhor || melhor.precoUnit >= atual.precoUnit) return null
+  return {
+    kgFaltando: arredondar2(melhor.kgMin - kgTipico),
+    precoAtual: atual.precoUnit,
+    precoMelhor: melhor.precoUnit,
+    economiaPorPacote: arredondar2(atual.precoUnit - melhor.precoUnit),
+  }
+}
+
+/** Equivalente a oportunidadeFaixa, por produto — mesmo argumento de venda, agora por produto_id. */
+export function oportunidadeFaixaProduto(
+  faixas: FaixaProduto[],
+  produtoId: string,
+  kgTipico: number,
+  data: string,
+): OportunidadeFaixa | null {
+  const atual = faixaVigenteProduto(faixas, produtoId, kgTipico, data)
+  const melhor = proximaFaixaProduto(faixas, produtoId, kgTipico, data)
   if (!atual || !melhor || melhor.precoUnit >= atual.precoUnit) return null
   return {
     kgFaltando: arredondar2(melhor.kgMin - kgTipico),

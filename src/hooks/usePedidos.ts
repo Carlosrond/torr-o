@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { ItemProdutoPrecificado } from '@/lib/preco'
 import type {
   Canal,
   CondicaoPagamento,
@@ -31,7 +32,8 @@ interface LinhaPedido {
   total_valor: number
   clientes: { nome: string; canal: Canal } | null
   pedido_itens: {
-    sku: Sku
+    produto_id: string
+    sku: Sku | null
     qtd_pacotes: number
     preco_unit_aplicado: number
     subtotal: number
@@ -39,7 +41,7 @@ interface LinhaPedido {
 }
 
 const SELECT_PEDIDO =
-  'id, cliente_id, data, condicao_pagamento, status, total_kg, total_valor, clientes(nome, canal), pedido_itens(sku, qtd_pacotes, preco_unit_aplicado, subtotal)'
+  'id, cliente_id, data, condicao_pagamento, status, total_kg, total_valor, clientes(nome, canal), pedido_itens(produto_id, sku, qtd_pacotes, preco_unit_aplicado, subtotal)'
 
 export function usePedidos() {
   return useQuery({
@@ -61,6 +63,7 @@ export function usePedidos() {
         totalKg: Number(linha.total_kg),
         totalValor: Number(linha.total_valor),
         itens: linha.pedido_itens.map((item) => ({
+          produtoId: item.produto_id,
           sku: item.sku,
           qtdPacotes: item.qtd_pacotes,
           precoUnit: Number(item.preco_unit_aplicado),
@@ -79,7 +82,7 @@ export interface NovoPedido {
   observacao: string | null
   totalKg: number
   totalValor: number
-  itens: ItemPrecificado[]
+  itens: ItemProdutoPrecificado[]
   /** Só faz sentido em consignado; para as demais condições vai null. */
   prazoRetorno: string | null
 }
@@ -97,7 +100,7 @@ export function useCriarPedido() {
         p_total_kg: pedido.totalKg,
         p_total_valor: pedido.totalValor,
         p_itens: pedido.itens.map((item) => ({
-          sku: item.sku,
+          produto_id: item.produtoId,
           qtd_pacotes: item.qtdPacotes,
           preco_unit_aplicado: item.precoUnit,
           subtotal: item.subtotal,

@@ -6,13 +6,14 @@ import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { useClientes } from '@/hooks/useClientes'
 import { usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
+import { useProdutos } from '@/hooks/useProdutos'
 import { addDias, hojeIso } from '@/lib/data'
 import { dataCurta, kgTexto, reais } from '@/lib/formato'
 import { porCliente } from '@/lib/insights'
 import {
   apenasValidos,
   baseDeClientes,
-  mixPorSku,
+  mixPorProduto,
   noPeriodo,
   porCanal,
   precoRealizadoVsTabela,
@@ -32,6 +33,7 @@ export default function Painel() {
   const { data: pedidos, isLoading, error } = usePedidos()
   const { data: faixas, error: erroPrecos } = usePrecos()
   const { data: clientes, error: erroClientes } = useClientes()
+  const { data: produtos } = useProdutos()
   const [dias, setDias] = useState(30)
 
   const hoje = hojeIso()
@@ -45,13 +47,13 @@ export default function Painel() {
       janela,
       resumo: resumo(janela),
       preco: faixas ? precoRealizadoVsTabela(janela, faixas) : null,
-      mix: mixPorSku(janela),
+      mix: mixPorProduto(janela, produtos ?? []),
       serie: seriePorSemana(janela),
       ranking: rankingClientes(janela, 5),
       canais: porCanal(janela),
       base: baseDeClientes(validos, inicio, hoje),
     }
-  }, [pedidos, faixas, inicio, hoje])
+  }, [pedidos, faixas, produtos, inicio, hoje])
 
   const cadencias = useMemo(
     () =>
@@ -127,17 +129,21 @@ export default function Painel() {
       </section>
 
       <section>
-        <h2 className="mb-2 font-semibold">Mix de pacote</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {mix.map((item) => (
-            <Cartao
-              key={item.sku}
-              titulo={item.sku}
-              valor={kgTexto(item.kg)}
-              detalhe={`${item.pacotes} pacotes · ${reais(item.receita)}`}
-            />
-          ))}
-        </div>
+        <h2 className="mb-2 font-semibold">Mix de produto</h2>
+        {mix.length === 0 ? (
+          <Vazio mensagem="Sem venda nessa janela." />
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {mix.map((item) => (
+              <Cartao
+                key={item.produtoId ?? item.nome}
+                titulo={item.nome}
+                valor={kgTexto(item.kg)}
+                detalhe={`${item.pacotes} pacotes · ${reais(item.receita)}`}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <section>

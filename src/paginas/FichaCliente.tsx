@@ -6,6 +6,7 @@ import { useClientes } from '@/hooks/useClientes'
 import { useApurarConsignado, useConsignado } from '@/hooks/useConsignado'
 import { useCancelarPedido, usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
+import { useProdutos } from '@/hooks/useProdutos'
 import { hojeIso } from '@/lib/data'
 import { diasParado, previsaoReposicao, saldoKg, saldoPorSku } from '@/lib/consignado'
 import { dataLonga, kgTexto, reais } from '@/lib/formato'
@@ -14,13 +15,19 @@ import { paraNumero } from '@/lib/numero'
 import { faixaVigente } from '@/lib/preco'
 import { oportunidadeFaixa } from '@/lib/recompra'
 import { prazoMedioPonderado } from '@/lib/prazo'
-import { KG_POR_SKU, ROTULO_CANAL, ROTULO_CONDICAO, SKUS, type Sku } from '@/lib/tipos'
+import { KG_POR_SKU, ROTULO_CANAL, ROTULO_CONDICAO, SKUS, type Produto, type Sku } from '@/lib/tipos'
+
+/** Nome do produto pelo sku legado, com fallback pro rótulo do sku — cai fora só se o produto foi removido do catálogo. */
+function nomeDoSku(produtos: Produto[], sku: Sku): string {
+  return produtos.find((p) => p.skuLegado === sku)?.nome ?? sku
+}
 
 export default function FichaCliente() {
   const { id = '' } = useParams()
   const { data: clientes, isLoading: carregandoClientes, error: erroClientes } = useClientes()
   const { data: pedidos, isLoading: carregandoPedidos, error: erroPedidos } = usePedidos()
   const { data: faixas, error: erroPrecos } = usePrecos()
+  const { data: produtos } = useProdutos()
   const { data: movimentos } = useConsignado(id || null)
   const apurar = useApurarConsignado()
   const cancelar = useCancelarPedido()
@@ -53,6 +60,7 @@ export default function FichaCliente() {
   const kgPorSkuHistorico: Record<Sku, number> = { '250g': 0, '500g': 0 }
   for (const pedido of doCliente) {
     for (const item of pedido.itens) {
+      if (!item.sku) continue // produto novo (sem sku legado) nao entra nesta leitura por SKU
       kgPorSkuHistorico[item.sku] += KG_POR_SKU[item.sku] * item.qtdPacotes
     }
   }
@@ -176,10 +184,10 @@ export default function FichaCliente() {
         </p>
       )}
 
-      {oportunidade && (
+      {oportunidade && skuMaisComprado && (
         <p className="rounded-xl bg-amber-50 p-4 text-sm tabular-nums text-amber-900">
           Argumento de venda: com {kgTexto(oportunidade.kgFaltando)} a mais, o pacote de{' '}
-          {skuMaisComprado} cai de {reais(oportunidade.precoAtual)} para{' '}
+          {nomeDoSku(produtos ?? [], skuMaisComprado)} cai de {reais(oportunidade.precoAtual)} para{' '}
           {reais(oportunidade.precoMelhor)} — {reais(oportunidade.economiaPorPacote)} por pacote.
         </p>
       )}
@@ -216,7 +224,7 @@ export default function FichaCliente() {
                 >
                   {skusComSaldo.map((sku) => (
                     <option key={sku} value={sku}>
-                      {sku} ({saldo[sku]} pacotes em saldo)
+                      {nomeDoSku(produtos ?? [], sku)} ({saldo[sku]} pacotes em saldo)
                     </option>
                   ))}
                 </select>

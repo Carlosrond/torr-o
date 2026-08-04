@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { oportunidadeFaixa, prever, sinais, type PedidoHistorico } from './recompra'
+import { oportunidadeFaixa, oportunidadeFaixaProduto, prever, sinais, type PedidoHistorico } from './recompra'
+import type { FaixaProduto } from './preco'
 import type { FaixaPreco } from './tipos'
 
 /** Pedidos a cada 10 dias, 20 kg cada. */
@@ -185,5 +186,30 @@ describe('oportunidadeFaixa', () => {
 
   it('devolve null quando nao ha faixa na data', () => {
     expect(oportunidadeFaixa(FAIXAS, '250g', 45, '2025-01-01')).toBeNull()
+  })
+})
+
+describe('oportunidadeFaixaProduto', () => {
+  const FAIXAS_PRODUTO: FaixaProduto[] = [
+    { id: 'a2', produtoId: 'p250', kgMin: 10.001, kgMax: 50, precoUnit: 11, vigenteDesde: '2026-01-01' },
+    { id: 'a3', produtoId: 'p250', kgMin: 50.001, kgMax: null, precoUnit: 10, vigenteDesde: '2026-01-01' },
+  ]
+
+  it('diz quantos kg faltam para o preco melhor', () => {
+    const o = oportunidadeFaixaProduto(FAIXAS_PRODUTO, 'p250', 45, '2026-03-01')
+    expect(o).toEqual({
+      kgFaltando: 5,
+      precoAtual: 11,
+      precoMelhor: 10,
+      economiaPorPacote: 1,
+    })
+  })
+
+  it('devolve null quando o cliente ja esta na melhor faixa', () => {
+    expect(oportunidadeFaixaProduto(FAIXAS_PRODUTO, 'p250', 80, '2026-03-01')).toBeNull()
+  })
+
+  it('devolve null quando nao ha faixa na data', () => {
+    expect(oportunidadeFaixaProduto(FAIXAS_PRODUTO, 'p250', 45, '2025-01-01')).toBeNull()
   })
 })

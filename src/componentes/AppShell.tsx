@@ -10,7 +10,7 @@ const ABAS = [
   { para: '/consignado', rotulo: 'Consignado' },
 ]
 
-const ROTAS_DENTRO_DE_MAIS = ['/painel', '/comissao', '/precos', '/equipe']
+const ROTAS_DENTRO_DE_MAIS = ['/painel', '/comissao', '/precos', '/produtos', '/equipe']
 
 const ROTULO_PAPEL = { admin: 'Admin', vendedor: 'Vendedor' } as const
 
