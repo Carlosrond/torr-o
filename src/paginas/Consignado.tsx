@@ -2,16 +2,9 @@ import { Link } from 'react-router-dom'
 import { Cartao } from '@/componentes/Cartao'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { usePendenciasConsignado } from '@/hooks/usePendenciasConsignado'
-import { useProdutos } from '@/hooks/useProdutos'
 import { DIAS_ALERTA_CONSIGNADO, situacaoPeloPrazo, type SituacaoConsignado } from '@/lib/consignado'
 import { hojeIso } from '@/lib/data'
 import { dataLonga, diasTexto, kgTexto } from '@/lib/formato'
-import { SKUS, type Produto, type Sku } from '@/lib/tipos'
-
-/** Nome do produto pelo sku legado, com fallback pro rótulo do sku. */
-function nomeDoSku(produtos: Produto[], sku: Sku): string {
-  return produtos.find((p) => p.skuLegado === sku)?.nome ?? sku
-}
 
 const RANK_SITUACAO: Record<SituacaoConsignado, number> = {
   vencido: 0,
@@ -105,7 +98,6 @@ function limparWhatsapp(numero: string): string {
 
 export default function Consignado() {
   const { data: pendencias, isLoading, error } = usePendenciasConsignado()
-  const { data: produtos } = useProdutos()
   const hoje = hojeIso()
 
   if (isLoading) return <Carregando />
@@ -150,9 +142,7 @@ export default function Consignado() {
                   <p className="truncate font-medium">{linha.clienteNome}</p>
                   <p className="truncate text-sm tabular-nums text-stone-700">
                     {kgTexto(linha.saldoKg)} ·{' '}
-                    {SKUS.map((sku) => `${linha.saldoPorSku[sku]} pac. ${nomeDoSku(produtos ?? [], sku)}`).join(
-                      ' · ',
-                    )}
+                    {linha.produtos.map((p) => `${p.pacotes} pac. ${p.nome}`).join(' · ')}
                   </p>
                   <p className="text-xs text-stone-600">
                     {linha.prazoRetorno ? `Prazo: ${dataLonga(linha.prazoRetorno)}` : 'Sem prazo definido'}

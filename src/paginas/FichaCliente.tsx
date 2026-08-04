@@ -5,14 +5,14 @@ import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { useClientes } from '@/hooks/useClientes'
 import { useApurarConsignado, useConsignado } from '@/hooks/useConsignado'
 import { useCancelarPedido, usePedidos } from '@/hooks/usePedidos'
-import { usePrecos } from '@/hooks/usePrecos'
+import { usePrecos, usePrecosProdutos } from '@/hooks/usePrecos'
 import { useProdutos } from '@/hooks/useProdutos'
 import { hojeIso } from '@/lib/data'
 import {
   diasParado,
-  previsaoReposicao,
-  saldoKg,
-  saldoPorSku,
+  previsaoReposicaoProduto,
+  saldoKgProduto,
+  saldoPorProduto,
   valorSaldoConsignado,
 } from '@/lib/consignado'
 import { dataLonga, diasTexto, kgTexto, reais } from '@/lib/formato'
@@ -32,12 +32,13 @@ export default function FichaCliente() {
   const { data: clientes, isLoading: carregandoClientes, error: erroClientes } = useClientes()
   const { data: pedidos, isLoading: carregandoPedidos, error: erroPedidos } = usePedidos()
   const { data: faixas, error: erroPrecos } = usePrecos()
+  const { data: faixasProdutos } = usePrecosProdutos()
   const { data: produtos } = useProdutos()
   const { data: movimentos } = useConsignado(id || null)
   const apurar = useApurarConsignado()
   const cancelar = useCancelarPedido()
 
-  const [skuApuracao, setSkuApuracao] = useState<Sku>(SKUS[0])
+  const [produtoApuracao, setProdutoApuracao] = useState('')
   const [qtdApuracao, setQtdApuracao] = useState('')
   const [dataApuracao, setDataApuracao] = useState(hojeIso())
   const [tipoApuracao, setTipoApuracao] = useState<'venda_apurada' | 'retorno'>('venda_apurada')
@@ -86,15 +87,16 @@ export default function FichaCliente() {
     })),
   )
   const movs = movimentos ?? []
-  const saldo = saldoPorSku(movs)
-  const temConsignado = SKUS.some((sku) => saldo[sku] !== 0)
-  const skusComSaldo = SKUS.filter((sku) => saldo[sku] > 0)
+  const saldo = saldoPorProduto(movs)
+  const temConsignado = Object.values(saldo).some((pacotes) => pacotes !== 0)
+  const produtosComSaldo = (produtos ?? []).filter((p) => (saldo[p.id] ?? 0) > 0)
   const diasParadoConsignado = diasParado(movs, hoje)
-  const reposicaoConsignado = previsaoReposicao(movs, hoje)
+  const reposicaoConsignado = previsaoReposicaoProduto(movs, hoje)
 
-  // valor do saldo consignado em R$ pelo preco de tabela de hoje -- se algum SKU do saldo
-  // nao tiver faixa vigente, nao inventa valor (mostra so o kg)
-  const valorDoSaldo = faixas ? valorSaldoConsignado(faixas, saldo, hoje) : null
+  // valor do saldo consignado em R$ pelo preco de tabela de hoje -- se algum produto do
+  // saldo nao tiver faixa vigente, nao inventa valor (mostra so o kg)
+  const valorDoSaldo = faixasProdutos ? valorSaldoConsignado(faixasProdutos, saldo, hoje) : null
+  const produtoEscolhido = produtosComSaldo.find((p) => p.id === produtoApuracao) ?? produtosComSaldo[0] ?? null
 
   async function registrarApuracao(evento: React.FormEvent) {
     evento.preventDefault()
@@ -104,15 +106,17 @@ export default function FichaCliente() {
       setErroApuracao('A quantidade precisa ser maior que zero.')
       return
     }
-    const saldoDoSku = saldo[skuApuracao] ?? 0
-    if (qtd > saldoDoSku) {
-      setErroApuracao(`Só há ${saldoDoSku} pacote(s) de ${skuApuracao} de saldo nesse cliente.`)
+    if (!produtoEscolhido) return
+    const saldoDoProduto = saldo[produtoEscolhido.id] ?? 0
+    if (qtd > saldoDoProduto) {
+      setErroApuracao(`Só há ${saldoDoProduto} pacote(s) de ${produtoEscolhido.nome} de saldo nesse cliente.`)
       return
     }
     try {
       await apurar.mutateAsync({
         clienteId: id,
-        sku: skuApuracao,
+        produtoId: produtoEscolhido.id,
+        sku: produtoEscolhido.skuLegado,
         tipo: tipoApuracao,
         qtdPacotes: qtd,
         data: dataApuracao,
@@ -203,7 +207,7 @@ export default function FichaCliente() {
           <div className="grid grid-cols-2 gap-3">
             <Cartao
               titulo="Saldo no cliente"
-              valor={kgTexto(saldoKg(movs))}
+              valor={kgTexto(saldoKgProduto(movs))}
               detalhe={valorDoSaldo !== null ? reais(valorDoSaldo) : undefined}
             />
             <Cartao
@@ -218,18 +222,18 @@ export default function FichaCliente() {
             />
           </div>
 
-          {skusComSaldo.length > 0 && (
+          {produtosComSaldo.length > 0 && (
             <form onSubmit={registrarApuracao} className="mt-3 space-y-2 rounded-xl bg-white p-4 shadow">
               <h3 className="text-sm font-semibold">Apurar consignado</h3>
               <div className="grid grid-cols-2 gap-2">
                 <select
-                  value={skuApuracao}
-                  onChange={(e) => setSkuApuracao(e.target.value as Sku)}
+                  value={produtoEscolhido?.id ?? ''}
+                  onChange={(e) => setProdutoApuracao(e.target.value)}
                   className="rounded-lg border border-stone-300 px-2 py-3"
                 >
-                  {skusComSaldo.map((sku) => (
-                    <option key={sku} value={sku}>
-                      {nomeDoSku(produtos ?? [], sku)} ({saldo[sku]} pacotes em saldo)
+                  {produtosComSaldo.map((produto) => (
+                    <option key={produto.id} value={produto.id}>
+                      {produto.nome} ({saldo[produto.id]} pacotes em saldo)
                     </option>
                   ))}
                 </select>

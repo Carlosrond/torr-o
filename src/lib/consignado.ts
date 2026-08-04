@@ -1,7 +1,7 @@
 import { addDias, diffDias } from './data'
 import { arredondar2 } from './numero'
-import { faixaVigente, MULTIPLO_KG } from './preco'
-import { KG_POR_SKU, SKUS, type FaixaPreco, type Sku, type TipoMovConsignado } from './tipos'
+import { faixaVigenteProduto, MULTIPLO_KG, type FaixaProduto } from './preco'
+import { KG_POR_SKU, SKUS, type Sku, type TipoMovConsignado } from './tipos'
 
 export interface MovConsignado {
   sku: Sku
@@ -37,7 +37,13 @@ function kgDe(movs: MovConsignado[]): number {
   return arredondar2(movs.reduce((soma, m) => soma + m.qtdPacotes * KG_POR_SKU[m.sku], 0))
 }
 
-function primeiraEntrega(movs: MovConsignado[]): string | null {
+/** Só tipo e data — serve tanto ao movimento por SKU quanto ao por produto. */
+interface MovTipoData {
+  tipo: TipoMovConsignado
+  data: string
+}
+
+function primeiraEntrega(movs: MovTipoData[]): string | null {
   const entregas = movs.filter((m) => m.tipo === 'entrega').map((m) => m.data).sort()
   return entregas[0] ?? null
 }
@@ -61,7 +67,7 @@ export function diasRestantes(movs: MovConsignado[], hoje: string): number | nul
 }
 
 /** Giro: dias desde a última apuração — ou desde a primeira entrega, se nunca apurou. */
-export function diasParado(movs: MovConsignado[], hoje: string): number | null {
+export function diasParado(movs: MovTipoData[], hoje: string): number | null {
   const apuradas = movs.filter((m) => m.tipo === 'venda_apurada').map((m) => m.data).sort()
   const referencia = apuradas[apuradas.length - 1] ?? primeiraEntrega(movs)
   if (!referencia) return null
@@ -75,26 +81,83 @@ export function previsaoReposicao(movs: MovConsignado[], hoje: string): string |
   return addDias(hoje, dias)
 }
 
+// ==================================================================================
+// Versões por produto — mesma regra de negócio de cima, agora sobre o catálogo
+// (produto_id) em vez do enum fixo Sku. As funções por SKU continuam existindo:
+// histórico e testes atuais dependem delas (mesmo padrão de preco.ts).
+// ==================================================================================
+
+export interface MovConsignadoProduto {
+  produtoId: string
+  /** Peso do pacote em kg, resolvido pelo catálogo na leitura. */
+  pesoKg: number
+  tipo: TipoMovConsignado
+  qtdPacotes: number
+  data: string
+}
+
+/** Saldo em pacotes por produto — soma dos movimentos, nunca campo guardado. */
+export function saldoPorProduto(movs: MovConsignadoProduto[]): Record<string, number> {
+  const saldo: Record<string, number> = {}
+  for (const mov of movs) {
+    saldo[mov.produtoId] = (saldo[mov.produtoId] ?? 0) + SINAL[mov.tipo] * mov.qtdPacotes
+  }
+  return saldo
+}
+
+export function saldoKgProduto(movs: MovConsignadoProduto[]): number {
+  return arredondar2(
+    movs.reduce((soma, m) => soma + SINAL[m.tipo] * m.qtdPacotes * m.pesoKg, 0),
+  )
+}
+
+function kgDeProduto(movs: MovConsignadoProduto[]): number {
+  return arredondar2(movs.reduce((soma, m) => soma + m.qtdPacotes * m.pesoKg, 0))
+}
+
+/** Ritmo de venda no cliente em kg/dia — equivalente a vendaApuradaDiariaKg. */
+export function vendaApuradaDiariaKgProduto(
+  movs: MovConsignadoProduto[],
+  hoje: string,
+): number | null {
+  const apuradas = movs.filter((m) => m.tipo === 'venda_apurada')
+  const inicio = primeiraEntrega(movs)
+  if (apuradas.length === 0 || inicio === null) return null
+  const dias = Math.max(1, diffDias(inicio, hoje))
+  return arredondar2(kgDeProduto(apuradas) / dias)
+}
+
+/** Data prevista em que o saldo consignado acaba — equivalente a previsaoReposicao. */
+export function previsaoReposicaoProduto(
+  movs: MovConsignadoProduto[],
+  hoje: string,
+): string | null {
+  const ritmo = vendaApuradaDiariaKgProduto(movs, hoje)
+  if (ritmo === null || ritmo <= 0) return null
+  const dias = Math.max(0, Math.round(saldoKgProduto(movs) / ritmo))
+  return addDias(hoje, dias)
+}
+
 /**
  * Valor de tabela do café que está no cliente. A faixa é escolhida pelo MENOR volume de
  * pedido (MULTIPLO_KG) porque a tabela é indexada pelo kg do PEDIDO INTEIRO e começa em
  * 5 kg — perguntar a faixa pelo peso de um pacote (0,25 kg) não acha faixa nenhuma e o
- * valor nunca aparecia na tela. Sem faixa vigente para algum SKU com saldo devolve null:
- * melhor mostrar só o kg do que inventar dinheiro.
+ * valor nunca aparecia na tela. Sem faixa vigente para algum produto com saldo devolve
+ * null: melhor mostrar só o kg do que inventar dinheiro.
  */
 export function valorSaldoConsignado(
-  faixas: FaixaPreco[],
-  saldo: Record<Sku, number>,
+  faixas: FaixaProduto[],
+  saldo: Record<string, number>,
   hoje: string,
 ): number | null {
-  const comSaldo = SKUS.filter((sku) => saldo[sku] > 0)
+  const comSaldo = Object.keys(saldo).filter((produtoId) => saldo[produtoId] > 0)
   if (comSaldo.length === 0) return null
 
   let total = 0
-  for (const sku of comSaldo) {
-    const faixa = faixaVigente(faixas, sku, MULTIPLO_KG, hoje)
+  for (const produtoId of comSaldo) {
+    const faixa = faixaVigenteProduto(faixas, produtoId, MULTIPLO_KG, hoje)
     if (faixa === null) return null
-    total += faixa.precoUnit * saldo[sku]
+    total += faixa.precoUnit * saldo[produtoId]
   }
   return arredondar2(total)
 }

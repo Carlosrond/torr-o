@@ -7,11 +7,15 @@ import {
   saldoKg,
   saldoPorSku,
   situacaoPeloPrazo,
+  previsaoReposicaoProduto,
+  saldoKgProduto,
+  saldoPorProduto,
   valorSaldoConsignado,
   vendaApuradaDiariaKg,
   type MovConsignado,
+  type MovConsignadoProduto,
 } from './consignado'
-import type { FaixaPreco } from './tipos'
+import type { FaixaProduto } from './preco'
 
 /** Entrega de 40 pacotes de 500g (20 kg) e 10 kg já apurados em 20 dias. */
 const MOVS: MovConsignado[] = [
@@ -224,32 +228,70 @@ describe('pendenciaConsignado', () => {
 
 describe('valorSaldoConsignado', () => {
   // tabela como a real: faixa comeca em 5 kg (o pedido e sempre multiplo de 5)
-  const faixas: FaixaPreco[] = [
-    { id: '1', sku: '250g', kgMin: 5, kgMax: 10, precoUnit: 11, vigenteDesde: '2026-08-01' },
-    { id: '2', sku: '250g', kgMin: 15, kgMax: null, precoUnit: 10, vigenteDesde: '2026-08-01' },
-    { id: '3', sku: '500g', kgMin: 5, kgMax: 10, precoUnit: 22, vigenteDesde: '2026-08-01' },
-    { id: '4', sku: '500g', kgMin: 15, kgMax: null, precoUnit: 20, vigenteDesde: '2026-08-01' },
+  const faixas: FaixaProduto[] = [
+    { id: '1', produtoId: 'p250', kgMin: 5, kgMax: 10, precoUnit: 11, vigenteDesde: '2026-08-01' },
+    { id: '2', produtoId: 'p250', kgMin: 15, kgMax: null, precoUnit: 10, vigenteDesde: '2026-08-01' },
+    { id: '3', produtoId: 'p500', kgMin: 5, kgMax: 10, precoUnit: 22, vigenteDesde: '2026-08-01' },
+    { id: '4', produtoId: 'p500', kgMin: 15, kgMax: null, precoUnit: 20, vigenteDesde: '2026-08-01' },
   ]
 
   it('valoriza o saldo pela faixa do menor volume, nao pelo peso do pacote', () => {
     // a regressao: perguntar a faixa por 0,25 kg nunca acha faixa (a tabela comeca em 5 kg)
     // e o valor em R$ nunca aparecia na tela
-    expect(valorSaldoConsignado(faixas, { '250g': 10, '500g': 0 }, '2026-08-10')).toBe(110)
-    expect(valorSaldoConsignado(faixas, { '250g': 4, '500g': 2 }, '2026-08-10')).toBe(88)
+    expect(valorSaldoConsignado(faixas, { p250: 10, p500: 0 }, '2026-08-10')).toBe(110)
+    expect(valorSaldoConsignado(faixas, { p250: 4, p500: 2 }, '2026-08-10')).toBe(88)
+  })
+
+  it('funciona para produto novo, sem sku legado — a pendencia que motivou tudo', () => {
+    const comNovo = [
+      ...faixas,
+      { id: '5', produtoId: 'p1kg', kgMin: 5, kgMax: null, precoUnit: 40, vigenteDesde: '2026-08-01' },
+    ]
+    expect(valorSaldoConsignado(comNovo, { p1kg: 3 }, '2026-08-10')).toBe(120)
   })
 
   it('sem saldo nenhum devolve null', () => {
-    expect(valorSaldoConsignado(faixas, { '250g': 0, '500g': 0 }, '2026-08-10')).toBeNull()
+    expect(valorSaldoConsignado(faixas, { p250: 0, p500: 0 }, '2026-08-10')).toBeNull()
   })
 
-  it('nao inventa valor quando falta faixa vigente para um sku com saldo', () => {
-    const soUmSku = faixas.filter((f) => f.sku === '250g')
-    expect(valorSaldoConsignado(soUmSku, { '250g': 4, '500g': 2 }, '2026-08-10')).toBeNull()
+  it('nao inventa valor quando falta faixa vigente para um produto com saldo', () => {
+    const soUm = faixas.filter((f) => f.produtoId === 'p250')
+    expect(valorSaldoConsignado(soUm, { p250: 4, p500: 2 }, '2026-08-10')).toBeNull()
     // tabela que ainda nao vigia na data tambem nao vale
-    expect(valorSaldoConsignado(faixas, { '250g': 4, '500g': 0 }, '2026-07-31')).toBeNull()
+    expect(valorSaldoConsignado(faixas, { p250: 4, p500: 0 }, '2026-07-31')).toBeNull()
   })
 
   it('ignora saldo negativo (lancamento inconsistente) sem estourar', () => {
-    expect(valorSaldoConsignado(faixas, { '250g': -3, '500g': 2 }, '2026-08-10')).toBe(44)
+    expect(valorSaldoConsignado(faixas, { p250: -3, p500: 2 }, '2026-08-10')).toBe(44)
+  })
+})
+
+describe('saldo por produto (produto novo, sem sku legado)', () => {
+  const P1KG = 'produto-1kg'
+  const P250 = 'produto-250'
+  const movs: MovConsignadoProduto[] = [
+    { produtoId: P1KG, pesoKg: 1, tipo: 'entrega', qtdPacotes: 10, data: '2026-08-01' },
+    { produtoId: P250, pesoKg: 0.25, tipo: 'entrega', qtdPacotes: 20, data: '2026-08-01' },
+    { produtoId: P1KG, pesoKg: 1, tipo: 'venda_apurada', qtdPacotes: 4, data: '2026-08-05' },
+    { produtoId: P250, pesoKg: 0.25, tipo: 'retorno', qtdPacotes: 20, data: '2026-08-05' },
+  ]
+
+  it('soma entrega e subtrai apuracao/retorno por produto', () => {
+    expect(saldoPorProduto(movs)).toEqual({ [P1KG]: 6, [P250]: 0 })
+  })
+
+  it('saldo em kg usa o peso de cada produto', () => {
+    // 6 pacotes de 1 kg + 0 de 250g
+    expect(saldoKgProduto(movs)).toBe(6)
+  })
+
+  it('previsao de reposicao segue o ritmo apurado', () => {
+    // 4 kg apurados em 4 dias = 1 kg/dia; saldo 6 kg -> acaba em 6 dias
+    expect(previsaoReposicaoProduto(movs, '2026-08-05')).toBe('2026-08-11')
+  })
+
+  it('sem apuracao nenhuma nao projeta data', () => {
+    const soEntrega = movs.filter((m) => m.tipo === 'entrega')
+    expect(previsaoReposicaoProduto(soEntrega, '2026-08-05')).toBeNull()
   })
 })
