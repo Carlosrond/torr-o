@@ -46,10 +46,15 @@ export function useEquipe(opcoes?: { enabled?: boolean }) {
 async function chamarGerenciarUsuario(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('gerenciar-usuario', { body })
   if (error) {
-    // erro não-2xx: o corpo JSON com a mensagem em PT-BR vem em error.context (a Response)
-    const contexto = (error as { context?: Response }).context
-    const corpo = await contexto?.json().catch(() => null)
-    throw new Error(corpo?.erro ?? error.message)
+    // Em erro HTTP (não-2xx), `context` é a Response e traz a mensagem em PT-BR.
+    // Em erro de rede/CORS, `context` NÃO é Response — chamar .json() nele estoura
+    // e esconde a causa real. Por isso a checagem de tipo antes.
+    const contexto = (error as { context?: unknown }).context
+    let corpo: { erro?: string } | null = null
+    if (contexto instanceof Response) {
+      corpo = await contexto.json().catch(() => null)
+    }
+    throw new Error(corpo?.erro ?? error.message ?? 'Não foi possível falar com o servidor.')
   }
   if (data?.erro) throw new Error(data.erro)
   return data
