@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Carregando, Erro } from '@/componentes/Estado'
 import { useClientes } from '@/hooks/useClientes'
 import { useCriarPedido } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
-import { hojeIso } from '@/lib/data'
+import { addDias, hojeIso } from '@/lib/data'
 import { dataLonga, kgTexto, reais } from '@/lib/formato'
 import { arredondar2, paraNumero } from '@/lib/numero'
 import { ehMultiploValido, kgMaisProximos, kgTotal, precificar, totalPedido } from '@/lib/preco'
@@ -32,6 +32,13 @@ export default function NovoPedido() {
 
   const cliente = (clientes ?? []).find((c) => c.id === clienteId) ?? null
   const condicaoEfetiva: CondicaoPagamento = condicao || cliente?.condicaoPadrao || 'avista'
+
+  // prazo padrão do retorno/apuração: recalcula sempre que troca o cliente ou a data,
+  // mas o vendedor pode ajustar a mão antes de salvar
+  const [prazoRetorno, setPrazoRetorno] = useState(() => addDias(data, cliente?.prazoConsignadoDias ?? 30))
+  useEffect(() => {
+    setPrazoRetorno(addDias(data, cliente?.prazoConsignadoDias ?? 30))
+  }, [data, cliente?.id, cliente?.prazoConsignadoDias])
 
   const itensInput = SKUS.map((sku) => ({ sku, qtdPacotes: Number(quantidades[sku]) || 0 })).filter(
     (item) => item.qtdPacotes > 0,
@@ -88,6 +95,7 @@ export default function NovoPedido() {
       totalKg: calculo.total.totalKg,
       totalValor: calculo.total.totalValor,
       itens: calculo.itens,
+      prazoRetorno: condicaoEfetiva === 'consignado' ? prazoRetorno : null,
     })
     setSalvo(id)
     setQuantidades({ '250g': '', '500g': '' })
@@ -220,6 +228,19 @@ export default function NovoPedido() {
           </option>
         ))}
       </select>
+
+      {condicaoEfetiva === 'consignado' && (
+        <label className="block text-sm text-stone-600">
+          Retorno/apuração até
+          <input
+            type="date"
+            required
+            value={prazoRetorno}
+            onChange={(e) => setPrazoRetorno(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
+          />
+        </label>
+      )}
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={ajustando} onChange={(e) => setAjustando(e.target.checked)} />

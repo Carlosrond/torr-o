@@ -80,6 +80,8 @@ export interface NovoPedido {
   totalKg: number
   totalValor: number
   itens: ItemPrecificado[]
+  /** Só faz sentido em consignado; para as demais condições vai null. */
+  prazoRetorno: string | null
 }
 
 export function useCriarPedido() {
@@ -100,6 +102,7 @@ export function useCriarPedido() {
           preco_unit_aplicado: item.precoUnit,
           subtotal: item.subtotal,
         })),
+        p_prazo_retorno: pedido.prazoRetorno,
       })
       if (error) throw new Error(error.message)
       return data as string

@@ -14,6 +14,7 @@ const VAZIO = {
   whatsapp: '',
   condicaoPadrao: 'avista' as CondicaoPagamento,
   cadenciaDeclaradaDias: '' as string,
+  prazoConsignadoDias: '30' as string,
   ativo: true,
   vendedorId: '' as string,
 }
@@ -43,6 +44,7 @@ export default function Clientes() {
       condicaoPadrao: cliente.condicaoPadrao,
       cadenciaDeclaradaDias:
         cliente.cadenciaDeclaradaDias === null ? '' : String(cliente.cadenciaDeclaradaDias),
+      prazoConsignadoDias: String(cliente.prazoConsignadoDias),
       ativo: cliente.ativo,
       vendedorId: cliente.vendedorId,
     })
@@ -62,6 +64,7 @@ export default function Clientes() {
       cadenciaDeclaradaDias: form.cadenciaDeclaradaDias
         ? paraNumero(form.cadenciaDeclaradaDias)
         : null,
+      prazoConsignadoDias: paraNumero(form.prazoConsignadoDias) || 30,
       ativo: form.ativo,
       ...(papel === 'admin' && form.vendedorId ? { vendedorId: form.vendedorId } : {}),
     })
@@ -165,6 +168,17 @@ export default function Clientes() {
               min={1}
               value={form.cadenciaDeclaradaDias}
               onChange={(e) => setForm({ ...form, cadenciaDeclaradaDias: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
+            />
+          </label>
+          <label className="block text-sm text-stone-600">
+            Prazo do consignado (dias)
+            <input
+              type="number"
+              min={1}
+              required
+              value={form.prazoConsignadoDias}
+              onChange={(e) => setForm({ ...form, prazoConsignadoDias: e.target.value })}
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
             />
           </label>

@@ -10,6 +10,7 @@ export interface Cliente {
   whatsapp: string | null
   condicaoPadrao: CondicaoPagamento
   cadenciaDeclaradaDias: number | null
+  prazoConsignadoDias: number
   ativo: boolean
   vendedorId: string
 }
@@ -24,6 +25,7 @@ interface LinhaCliente {
   whatsapp: string | null
   condicao_padrao: CondicaoPagamento
   cadencia_declarada_dias: number | null
+  prazo_consignado_dias: number | null
   ativo: boolean
   vendedor_id: string
 }
@@ -37,6 +39,7 @@ function mapear(linha: LinhaCliente): Cliente {
     whatsapp: linha.whatsapp,
     condicaoPadrao: linha.condicao_padrao,
     cadenciaDeclaradaDias: linha.cadencia_declarada_dias,
+    prazoConsignadoDias: linha.prazo_consignado_dias ?? 30,
     ativo: linha.ativo,
     vendedorId: linha.vendedor_id,
   }
@@ -49,7 +52,7 @@ export function useClientes() {
       const { data, error } = await supabase
         .from('clientes')
         .select(
-          'id, nome, canal, cidade, whatsapp, condicao_padrao, cadencia_declarada_dias, ativo, vendedor_id',
+          'id, nome, canal, cidade, whatsapp, condicao_padrao, cadencia_declarada_dias, prazo_consignado_dias, ativo, vendedor_id',
         )
         .order('nome')
       if (error) throw new Error(error.message)
@@ -69,6 +72,7 @@ export function useSalvarCliente() {
         whatsapp: cliente.whatsapp,
         condicao_padrao: cliente.condicaoPadrao,
         cadencia_declarada_dias: cliente.cadenciaDeclaradaDias,
+        prazo_consignado_dias: cliente.prazoConsignadoDias,
         ativo: cliente.ativo,
         ...(cliente.vendedorId ? { vendedor_id: cliente.vendedorId } : {}),
       }
