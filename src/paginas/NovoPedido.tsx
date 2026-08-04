@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Carregando, Erro } from '@/componentes/Estado'
 import { useClientes } from '@/hooks/useClientes'
 import { useCriarPedido } from '@/hooks/usePedidos'
@@ -90,9 +91,16 @@ export default function NovoPedido() {
   const { data: produtos, isLoading: carregandoProdutos, error: erroProdutos } = useProdutos()
   const { data: faixas, isLoading: carregandoPrecos, error: erroPrecos } = usePrecosProdutos()
   const criar = useCriarPedido()
+  const navegar = useNavigate()
 
   const [clienteId, setClienteId] = useState('')
   const [data, setData] = useState(hojeIso())
+  // entrega prevista acompanha a data do pedido (mesmo dia é o caso comum), mas o
+  // vendedor pode ajustar antes de salvar
+  const [dataEntrega, setDataEntrega] = useState(hojeIso())
+  useEffect(() => {
+    setDataEntrega(data)
+  }, [data])
   const [quantidades, setQuantidades] = useState<Record<string, string>>({})
   const [condicao, setCondicao] = useState<CondicaoPagamento | ''>('')
   const [observacao, setObservacao] = useState('')
@@ -171,6 +179,7 @@ export default function NovoPedido() {
       totalValor: calculo.total.totalValor,
       itens: calculo.itens,
       prazoRetorno: condicaoEfetiva === 'consignado' ? prazoRetorno : null,
+      dataEntregaPrevista: dataEntrega,
     })
     setSalvo(id)
     setQuantidades({})
@@ -215,6 +224,17 @@ export default function NovoPedido() {
         onChange={(e) => setData(e.target.value)}
         className="w-full rounded-lg border border-stone-300 px-3 py-3"
       />
+
+      <label className="block text-sm text-stone-600">
+        Entrega prevista
+        <input
+          type="date"
+          required
+          value={dataEntrega}
+          onChange={(e) => setDataEntrega(e.target.value)}
+          className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
+        />
+      </label>
 
       {produtosAtivos.length === 0 ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -350,15 +370,36 @@ export default function NovoPedido() {
       />
 
       {criar.error && <Erro mensagem={criar.error.message} />}
-      {salvo && <p className="text-sm font-medium text-green-700">Pedido salvo.</p>}
 
-      <button
-        type="submit"
-        disabled={!clienteId || itensInput.length === 0 || !ehMultiploValido(kg) || criar.isPending}
-        className="w-full rounded-lg bg-amber-800 py-4 text-lg font-semibold text-white disabled:opacity-50"
-      >
-        {criar.isPending ? 'Salvando…' : 'Salvar pedido'}
-      </button>
+      {salvo ? (
+        <div className="space-y-3 rounded-xl border border-green-200 bg-green-50 p-4">
+          <p className="text-sm font-medium text-green-800">Pedido salvo.</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => navegar(`/romaneio/${salvo}`)}
+              className="min-h-11 rounded-lg bg-amber-800 py-3 text-sm font-semibold text-white"
+            >
+              Gerar romaneio
+            </button>
+            <button
+              type="button"
+              onClick={() => setSalvo(null)}
+              className="min-h-11 rounded-lg border border-stone-300 bg-white py-3 text-sm font-semibold text-stone-700"
+            >
+              Lançar outro pedido
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="submit"
+          disabled={!clienteId || itensInput.length === 0 || !ehMultiploValido(kg) || criar.isPending}
+          className="w-full rounded-lg bg-amber-800 py-4 text-lg font-semibold text-white disabled:opacity-50"
+        >
+          {criar.isPending ? 'Salvando…' : 'Salvar pedido'}
+        </button>
+      )}
     </form>
   )
 }

@@ -15,6 +15,7 @@ export interface PedidoCompleto {
   clienteNome: string
   canal: Canal
   data: string
+  dataEntregaPrevista: string
   condicao: CondicaoPagamento
   status: StatusPedido
   totalKg: number
@@ -26,6 +27,7 @@ interface LinhaPedido {
   id: string
   cliente_id: string
   data: string
+  data_entrega_prevista: string | null
   condicao_pagamento: CondicaoPagamento
   status: StatusPedido
   total_kg: number
@@ -41,7 +43,7 @@ interface LinhaPedido {
 }
 
 const SELECT_PEDIDO =
-  'id, cliente_id, data, condicao_pagamento, status, total_kg, total_valor, clientes(nome, canal), pedido_itens(produto_id, sku, qtd_pacotes, preco_unit_aplicado, subtotal)'
+  'id, cliente_id, data, data_entrega_prevista, condicao_pagamento, status, total_kg, total_valor, clientes(nome, canal), pedido_itens(produto_id, sku, qtd_pacotes, preco_unit_aplicado, subtotal)'
 
 export function usePedidos() {
   return useQuery({
@@ -58,6 +60,7 @@ export function usePedidos() {
         clienteNome: linha.clientes?.nome ?? '(cliente removido)',
         canal: linha.clientes?.canal ?? 'consumidor',
         data: linha.data,
+        dataEntregaPrevista: linha.data_entrega_prevista ?? linha.data,
         condicao: linha.condicao_pagamento,
         status: linha.status,
         totalKg: Number(linha.total_kg),
@@ -85,6 +88,7 @@ export interface NovoPedido {
   itens: ItemProdutoPrecificado[]
   /** Só faz sentido em consignado; para as demais condições vai null. */
   prazoRetorno: string | null
+  dataEntregaPrevista: string
 }
 
 export function useCriarPedido() {
@@ -106,6 +110,7 @@ export function useCriarPedido() {
           subtotal: item.subtotal,
         })),
         p_prazo_retorno: pedido.prazoRetorno,
+        p_data_entrega_prevista: pedido.dataEntregaPrevista,
       })
       if (error) throw new Error(error.message)
       return data as string
