@@ -1,5 +1,12 @@
 import { arredondar2 } from './numero'
-import { KG_POR_SKU, type FaixaPreco, type ItemPedidoInput, type ItemPrecificado, type Sku } from './tipos'
+import {
+  KG_POR_SKU,
+  type FaixaPreco,
+  type ItemPedidoInput,
+  type ItemPrecificado,
+  type Produto,
+  type Sku,
+} from './tipos'
 
 /** Kg total do pedido — é isso que define a faixa de volume. */
 export function kgTotal(itens: ItemPedidoInput[]): number {
@@ -96,8 +103,10 @@ export function kgMaisProximos(kg: number): { abaixo: number | null; acima: numb
 }
 
 export function totalPedido(itens: ItemPrecificado[]): { totalKg: number; totalValor: number } {
+  // produto novo (sem sku legado) não entra nesta soma por SKU — usar totalPedidoProdutos
+  const doSku = itens.filter((item): item is ItemPrecificado & { sku: Sku } => item.sku !== null)
   return {
-    totalKg: kgTotal(itens),
+    totalKg: kgTotal(doSku),
     totalValor: arredondar2(itens.reduce((soma, item) => soma + item.subtotal, 0)),
   }
 }
@@ -179,6 +188,208 @@ export function validarFaixas(faixas: FaixaParaValidar[]): string | null {
     }
     if (semTeto[0] !== ordenado[ordenado.length - 1]) {
       return `Falta a faixa sem teto do ${sku}. Deixe o campo de kg máximo vazio na última faixa, senão pedido grande fica sem preço.`
+    }
+  }
+
+  return null
+}
+
+// ==================================================================================
+// Versões por produto — mesma regra de negócio de cima, agora sobre o catálogo de
+// produtos (produto_id) em vez do enum fixo Sku. As funções por SKU acima continuam
+// existindo e não mudam: histórico e testes atuais dependem delas.
+// ==================================================================================
+
+export interface ItemProdutoInput {
+  produtoId: string
+  qtdPacotes: number
+}
+
+export interface ItemProdutoPrecificado {
+  produtoId: string
+  qtdPacotes: number
+  precoUnit: number
+  subtotal: number
+}
+
+export interface FaixaProduto {
+  id: string
+  produtoId: string
+  kgMin: number
+  kgMax: number | null
+  precoUnit: number
+  vigenteDesde: string
+}
+
+function pesoDoProduto(produtos: Produto[], produtoId: string): number {
+  const produto = produtos.find((p) => p.id === produtoId)
+  if (!produto) throw new Error(`Produto ${produtoId} não encontrado no catálogo`)
+  return produto.pesoKg
+}
+
+function nomeDoProduto(produtos: Produto[], produtoId: string): string {
+  return produtos.find((p) => p.id === produtoId)?.nome ?? produtoId
+}
+
+/** Kg total do pedido a partir do peso de cada produto — equivalente a kgTotal, por produto. */
+export function kgTotalProdutos(itens: ItemProdutoInput[], produtos: Produto[]): number {
+  const kg = itens.reduce(
+    (soma, item) => soma + pesoDoProduto(produtos, item.produtoId) * item.qtdPacotes,
+    0,
+  )
+  return arredondar2(kg)
+}
+
+function versaoVigenteProduto(faixas: FaixaProduto[], produtoId: string, data: string): string | null {
+  const datas = faixas
+    .filter((f) => f.produtoId === produtoId && f.vigenteDesde <= data)
+    .map((f) => f.vigenteDesde)
+  if (datas.length === 0) return null
+  return datas.reduce((maisRecente, atual) => (atual > maisRecente ? atual : maisRecente))
+}
+
+function faixasDoProduto(faixas: FaixaProduto[], produtoId: string, data: string): FaixaProduto[] {
+  const versao = versaoVigenteProduto(faixas, produtoId, data)
+  if (versao === null) return []
+  return faixas.filter((f) => f.produtoId === produtoId && f.vigenteDesde === versao)
+}
+
+function contemKgProduto(faixa: FaixaProduto, kg: number): boolean {
+  return kg >= faixa.kgMin && (faixa.kgMax === null || kg <= faixa.kgMax)
+}
+
+/** Faixa aplicável ao produto, dado o kg TOTAL do pedido e a data — equivalente a faixaVigente. */
+export function faixaVigenteProduto(
+  faixas: FaixaProduto[],
+  produtoId: string,
+  kgTotalPedido: number,
+  data: string,
+): FaixaProduto | null {
+  return faixasDoProduto(faixas, produtoId, data).find((f) => contemKgProduto(f, kgTotalPedido)) ?? null
+}
+
+/** Faixa imediatamente melhor que a atual — equivalente a proximaFaixa. */
+export function proximaFaixaProduto(
+  faixas: FaixaProduto[],
+  produtoId: string,
+  kgTotalPedido: number,
+  data: string,
+): FaixaProduto | null {
+  const atual = faixaVigenteProduto(faixas, produtoId, kgTotalPedido, data)
+  if (!atual) return null
+  const acima = faixasDoProduto(faixas, produtoId, data).filter((f) => f.kgMin > atual.kgMin)
+  if (acima.length === 0) return null
+  const menorPiso = Math.min(...acima.map((f) => f.kgMin))
+  return acima.find((f) => f.kgMin === menorPiso) ?? null
+}
+
+/** Precifica os itens por produto aplicando a faixa do kg total — equivalente a precificar. */
+export function precificarProdutos(
+  itens: ItemProdutoInput[],
+  produtos: Produto[],
+  faixas: FaixaProduto[],
+  data: string,
+): ItemProdutoPrecificado[] {
+  const total = kgTotalProdutos(itens, produtos)
+  return itens
+    .filter((item) => item.qtdPacotes > 0)
+    .map((item) => {
+      const faixa = faixaVigenteProduto(faixas, item.produtoId, total, data)
+      if (!faixa) {
+        const nome = nomeDoProduto(produtos, item.produtoId)
+        throw new Error(`Sem faixa de preço para ${nome} com ${total} kg em ${data}`)
+      }
+      return {
+        produtoId: item.produtoId,
+        qtdPacotes: item.qtdPacotes,
+        precoUnit: faixa.precoUnit,
+        subtotal: arredondar2(faixa.precoUnit * item.qtdPacotes),
+      }
+    })
+}
+
+export function totalPedidoProdutos(
+  itens: ItemProdutoPrecificado[],
+  produtos: Produto[],
+): { totalKg: number; totalValor: number } {
+  return {
+    totalKg: kgTotalProdutos(itens, produtos),
+    totalValor: arredondar2(itens.reduce((soma, item) => soma + item.subtotal, 0)),
+  }
+}
+
+/** Faixa de preço em edição na tela, por produto — ainda não tem id nem vigência confirmada. */
+export interface FaixaProdutoParaValidar {
+  produtoId: string
+  kgMin: number
+  kgMax: number | null
+  precoUnit: number
+}
+
+/**
+ * Equivalente a validarFaixas, por produto: mesma grade fechada de 5 em 5 kg, mesma
+ * lista de erros — só troca o rótulo do SKU pelo nome do produto nas mensagens.
+ */
+export function validarFaixasProduto(
+  faixas: FaixaProdutoParaValidar[],
+  produtos: Produto[],
+): string | null {
+  const produtosPresentes = [...new Set(faixas.map((f) => f.produtoId))]
+
+  for (const produtoId of produtosPresentes) {
+    const nome = nomeDoProduto(produtos, produtoId)
+    const doProduto = faixas.filter((f) => f.produtoId === produtoId)
+
+    for (const f of doProduto) {
+      if (!Number.isFinite(f.precoUnit) || f.precoUnit <= 0) {
+        return `O preço da faixa de ${f.kgMin} kg do ${nome} está vazio ou inválido. Use vírgula ou ponto, por exemplo 10,50.`
+      }
+    }
+
+    for (const f of doProduto) {
+      const valores = f.kgMax === null ? [f.kgMin] : [f.kgMin, f.kgMax]
+      for (const kg of valores) {
+        if (paraGramas(kg) % MULTIPLO_G !== 0) {
+          return `A faixa do ${nome} que começa em ${f.kgMin} kg não é múltipla de 5. Use números fechados: 5, 10, 15, 20…`
+        }
+      }
+    }
+
+    const ordenado = [...doProduto].sort((a, b) => a.kgMin - b.kgMin)
+
+    if (paraGramas(ordenado[0].kgMin) !== MULTIPLO_G) {
+      return `A primeira faixa do ${nome} começa em ${ordenado[0].kgMin} kg. Ela precisa começar em ${MULTIPLO_KG} kg, que é o pedido mínimo.`
+    }
+
+    for (const f of doProduto) {
+      if (f.kgMax !== null && paraGramas(f.kgMax) <= paraGramas(f.kgMin)) {
+        return `A faixa do ${nome} que começa em ${f.kgMin} kg termina em ${f.kgMax} kg. O teto tem que ser maior que o piso.`
+      }
+    }
+
+    for (let i = 0; i < ordenado.length - 1; i++) {
+      const atual = ordenado[i]
+      const seguinte = ordenado[i + 1]
+      if (atual.kgMax === null) continue
+      const tetoG = paraGramas(atual.kgMax)
+      const proximoMinG = paraGramas(seguinte.kgMin)
+      if (proximoMinG <= tetoG) {
+        return `As faixas do ${nome} se sobrepõem: uma vai até ${atual.kgMax} kg e a seguinte já começa em ${seguinte.kgMin} kg.`
+      }
+      if (proximoMinG !== tetoG + MULTIPLO_G) {
+        return `A tabela do ${nome} pula de ${atual.kgMax} kg para ${seguinte.kgMin} kg. A faixa seguinte tem que começar em ${atual.kgMax + MULTIPLO_KG} kg.`
+      }
+    }
+
+    const semTeto = doProduto.filter((f) => f.kgMax === null)
+    if (semTeto.length === 0) {
+      return `Falta a faixa sem teto do ${nome}. Deixe o campo de kg máximo vazio na última faixa, senão pedido grande fica sem preço.`
+    }
+    if (semTeto.length > 1) {
+      return `O ${nome} tem duas faixas sem teto. Só a última pode ficar sem teto.`
+    }
+    if (semTeto[0] !== ordenado[ordenado.length - 1]) {
+      return `Falta a faixa sem teto do ${nome}. Deixe o campo de kg máximo vazio na última faixa, senão pedido grande fica sem preço.`
     }
   }
 

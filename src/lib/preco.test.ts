@@ -1,15 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import type { FaixaPreco } from './tipos'
+import type { FaixaPreco, Produto } from './tipos'
 import {
   ehMultiploValido,
   faixaVigente,
+  faixaVigenteProduto,
   kgMaisProximos,
   kgTotal,
+  kgTotalProdutos,
   precificar,
+  precificarProdutos,
   proximaFaixa,
+  proximaFaixaProduto,
   totalPedido,
+  totalPedidoProdutos,
   validarFaixas,
+  validarFaixasProduto,
   type FaixaParaValidar,
+  type FaixaProdutoParaValidar,
 } from './preco'
 
 /** Tabela de exemplo: faixas em kg do pedido inteiro, por SKU. */
@@ -283,5 +290,242 @@ describe('validarFaixas', () => {
         { sku: '500g', kgMin: 30, kgMax: null, precoUnit: 18 },
       ]),
     ).toBeNull()
+  })
+})
+
+// ==================================================================================
+// Versões por produto — mesmo comportamento de cima, agora sobre produto_id.
+// ==================================================================================
+
+const PRODUTOS: Produto[] = [
+  { id: 'p250', nome: 'Café 250g', descricao: null, pesoKg: 0.25, fotoUrl: null, skuLegado: '250g', ativo: true, ordem: 1 },
+  { id: 'p500', nome: 'Café 500g', descricao: null, pesoKg: 0.5, fotoUrl: null, skuLegado: '500g', ativo: true, ordem: 2 },
+  { id: 'p1kg', nome: 'Café 1kg', descricao: null, pesoKg: 1, fotoUrl: null, skuLegado: null, ativo: true, ordem: 3 },
+]
+
+const FAIXAS_PRODUTO = [
+  { id: 'a1', produtoId: 'p250', kgMin: 0, kgMax: 10, precoUnit: 12, vigenteDesde: '2026-01-01' },
+  { id: 'a2', produtoId: 'p250', kgMin: 10.001, kgMax: 50, precoUnit: 11, vigenteDesde: '2026-01-01' },
+  { id: 'a3', produtoId: 'p250', kgMin: 50.001, kgMax: null, precoUnit: 10, vigenteDesde: '2026-01-01' },
+  { id: 'b1', produtoId: 'p500', kgMin: 0, kgMax: 10, precoUnit: 22, vigenteDesde: '2026-01-01' },
+  { id: 'b2', produtoId: 'p500', kgMin: 10.001, kgMax: 50, precoUnit: 20, vigenteDesde: '2026-01-01' },
+  { id: 'b3', produtoId: 'p500', kgMin: 50.001, kgMax: null, precoUnit: 18, vigenteDesde: '2026-01-01' },
+  // reajuste posterior do p500 — versão completa, as três faixas com a mesma vigência
+  { id: 'b1v2', produtoId: 'p500', kgMin: 0, kgMax: 10, precoUnit: 22, vigenteDesde: '2026-06-01' },
+  { id: 'b2v2', produtoId: 'p500', kgMin: 10.001, kgMax: 50, precoUnit: 21, vigenteDesde: '2026-06-01' },
+  { id: 'b3v2', produtoId: 'p500', kgMin: 50.001, kgMax: null, precoUnit: 18, vigenteDesde: '2026-06-01' },
+]
+
+describe('kgTotalProdutos', () => {
+  it('soma o kg de produtos com pesos diferentes', () => {
+    expect(kgTotalProdutos([{ produtoId: 'p250', qtdPacotes: 4 }], PRODUTOS)).toBe(1)
+    expect(kgTotalProdutos([{ produtoId: 'p500', qtdPacotes: 3 }], PRODUTOS)).toBe(1.5)
+  })
+
+  it('pedido vazio tem 0 kg', () => {
+    expect(kgTotalProdutos([], PRODUTOS)).toBe(0)
+  })
+
+  it('peso de produto novo (1 kg) entra no calculo de kg total', () => {
+    expect(
+      kgTotalProdutos(
+        [
+          { produtoId: 'p250', qtdPacotes: 4 }, // 1 kg
+          { produtoId: 'p1kg', qtdPacotes: 3 }, // 3 kg
+        ],
+        PRODUTOS,
+      ),
+    ).toBe(4)
+  })
+})
+
+describe('faixaVigenteProduto', () => {
+  it('escolhe a faixa pelo kg TOTAL do pedido com dois produtos de pesos diferentes', () => {
+    // 8 pacotes de p250 = 2 kg, mas com p500 o pedido vai a 12 kg -> faixa do meio
+    const itens = [
+      { produtoId: 'p250', qtdPacotes: 8 },
+      { produtoId: 'p500', qtdPacotes: 20 },
+    ]
+    const total = kgTotalProdutos(itens, PRODUTOS) // 2 + 10 = 12
+    expect(total).toBe(12)
+    expect(faixaVigenteProduto(FAIXAS_PRODUTO, 'p250', total, '2026-03-01')?.precoUnit).toBe(11)
+  })
+
+  it('respeita o teto e o piso da faixa', () => {
+    expect(faixaVigenteProduto(FAIXAS_PRODUTO, 'p250', 10, '2026-03-01')?.precoUnit).toBe(12)
+    expect(faixaVigenteProduto(FAIXAS_PRODUTO, 'p250', 50, '2026-03-01')?.precoUnit).toBe(11)
+    expect(faixaVigenteProduto(FAIXAS_PRODUTO, 'p250', 300, '2026-03-01')?.precoUnit).toBe(10)
+  })
+
+  it('usa a versao vigente na data do pedido, por produto — nao a mais recente', () => {
+    expect(faixaVigenteProduto(FAIXAS_PRODUTO, 'p500', 20, '2026-03-01')?.precoUnit).toBe(20)
+    expect(faixaVigenteProduto(FAIXAS_PRODUTO, 'p500', 20, '2026-07-01')?.precoUnit).toBe(21)
+  })
+
+  it('devolve null quando nao ha faixa aplicavel', () => {
+    expect(faixaVigenteProduto(FAIXAS_PRODUTO, 'p500', 20, '2025-12-31')).toBeNull()
+  })
+
+  it('versao mais recente incompleta (faixa do meio faltando) devolve null, nao vaza preco da versao anterior', () => {
+    const faixasComVersaoIncompleta = [
+      ...FAIXAS_PRODUTO,
+      // reajuste do p250 esquecendo a faixa do meio (10.001-50)
+      { id: 'a1v2', produtoId: 'p250', kgMin: 0, kgMax: 10, precoUnit: 13, vigenteDesde: '2026-08-01' },
+      { id: 'a3v2', produtoId: 'p250', kgMin: 50.001, kgMax: null, precoUnit: 11, vigenteDesde: '2026-08-01' },
+    ]
+    expect(faixaVigenteProduto(faixasComVersaoIncompleta, 'p250', 20, '2026-09-01')).toBeNull()
+  })
+})
+
+describe('precificarProdutos', () => {
+  it('aplica a faixa do kg total a todos os itens e calcula subtotal', () => {
+    const itens = [
+      { produtoId: 'p250', qtdPacotes: 8 },
+      { produtoId: 'p500', qtdPacotes: 20 },
+    ]
+    const precificados = precificarProdutos(itens, PRODUTOS, FAIXAS_PRODUTO, '2026-03-01')
+    expect(precificados).toEqual([
+      { produtoId: 'p250', qtdPacotes: 8, precoUnit: 11, subtotal: 88 },
+      { produtoId: 'p500', qtdPacotes: 20, precoUnit: 20, subtotal: 400 },
+    ])
+  })
+
+  it('ignora item com quantidade zero', () => {
+    const precificados = precificarProdutos(
+      [
+        { produtoId: 'p250', qtdPacotes: 0 },
+        { produtoId: 'p500', qtdPacotes: 4 },
+      ],
+      PRODUTOS,
+      FAIXAS_PRODUTO,
+      '2026-03-01',
+    )
+    expect(precificados).toHaveLength(1)
+    expect(precificados[0].produtoId).toBe('p500')
+  })
+
+  it('lanca erro citando o NOME do produto quando falta faixa na data', () => {
+    expect(() =>
+      precificarProdutos([{ produtoId: 'p500', qtdPacotes: 4 }], PRODUTOS, FAIXAS_PRODUTO, '2025-01-01'),
+    ).toThrow(/sem faixa de preço para café 500g/i)
+  })
+})
+
+describe('totalPedidoProdutos', () => {
+  it('soma kg e valor dos itens precificados', () => {
+    const total = totalPedidoProdutos(
+      [
+        { produtoId: 'p250', qtdPacotes: 8, precoUnit: 11, subtotal: 88 },
+        { produtoId: 'p500', qtdPacotes: 20, precoUnit: 20, subtotal: 400 },
+      ],
+      PRODUTOS,
+    )
+    expect(total).toEqual({ totalKg: 12, totalValor: 488 })
+  })
+})
+
+describe('proximaFaixaProduto', () => {
+  it('devolve a faixa seguinte para virar argumento de venda', () => {
+    const proxima = proximaFaixaProduto(FAIXAS_PRODUTO, 'p250', 45, '2026-03-01')
+    expect(proxima?.kgMin).toBe(50.001)
+    expect(proxima?.precoUnit).toBe(10)
+  })
+
+  it('devolve null quando o cliente ja esta na melhor faixa', () => {
+    expect(proximaFaixaProduto(FAIXAS_PRODUTO, 'p250', 80, '2026-03-01')).toBeNull()
+  })
+})
+
+describe('validarFaixasProduto', () => {
+  const faixa = (kgMin: number, kgMax: number | null, precoUnit: number): FaixaProdutoParaValidar => ({
+    produtoId: 'p250',
+    kgMin,
+    kgMax,
+    precoUnit,
+  })
+
+  it('caminho feliz: grade de 5 fechada e sem furo (5-25, 30-50, 55-sem teto)', () => {
+    expect(
+      validarFaixasProduto([faixa(5, 25, 11), faixa(30, 50, 10), faixa(55, null, 8.7)], PRODUTOS),
+    ).toBeNull()
+  })
+
+  it('rejeita preço vazio ou invalido, citando o nome do produto', () => {
+    const resultado = validarFaixasProduto(
+      [faixa(5, 25, 11), faixa(30, 50, NaN), faixa(55, null, 8.7)],
+      PRODUTOS,
+    )
+    expect(resultado).toBe(
+      'O preço da faixa de 30 kg do Café 250g está vazio ou inválido. Use vírgula ou ponto, por exemplo 10,50.',
+    )
+  })
+
+  it('rejeita kg que nao e multiplo de 5', () => {
+    const resultado = validarFaixasProduto(
+      [faixa(5, 25, 11), faixa(27, 50, 10), faixa(55, null, 8.7)],
+      PRODUTOS,
+    )
+    expect(resultado).toBe(
+      'A faixa do Café 250g que começa em 27 kg não é múltipla de 5. Use números fechados: 5, 10, 15, 20…',
+    )
+  })
+
+  it('rejeita primeira faixa que nao comeca em 5', () => {
+    const resultado = validarFaixasProduto([faixa(30, null, 10)], PRODUTOS)
+    expect(resultado).toBe(
+      'A primeira faixa do Café 250g começa em 30 kg. Ela precisa começar em 5 kg, que é o pedido mínimo.',
+    )
+  })
+
+  it('rejeita teto menor ou igual ao piso', () => {
+    const resultado = validarFaixasProduto([faixa(5, 25, 11), faixa(30, 25, 10)], PRODUTOS)
+    expect(resultado).toBe(
+      'A faixa do Café 250g que começa em 30 kg termina em 25 kg. O teto tem que ser maior que o piso.',
+    )
+  })
+
+  it('rejeita faixas sobrepostas', () => {
+    const resultado = validarFaixasProduto([faixa(5, 50, 11), faixa(50, null, 8.7)], PRODUTOS)
+    expect(resultado).toBe(
+      'As faixas do Café 250g se sobrepõem: uma vai até 50 kg e a seguinte já começa em 50 kg.',
+    )
+  })
+
+  it('rejeita furo real entre faixas', () => {
+    const resultado = validarFaixasProduto([faixa(5, 25, 11), faixa(40, null, 8.7)], PRODUTOS)
+    expect(resultado).toBe(
+      'A tabela do Café 250g pula de 25 kg para 40 kg. A faixa seguinte tem que começar em 30 kg.',
+    )
+  })
+
+  it('rejeita tabela sem faixa sem teto', () => {
+    const resultado = validarFaixasProduto([faixa(5, 50, 11)], PRODUTOS)
+    expect(resultado).toBe(
+      'Falta a faixa sem teto do Café 250g. Deixe o campo de kg máximo vazio na última faixa, senão pedido grande fica sem preço.',
+    )
+  })
+
+  it('rejeita duas faixas sem teto', () => {
+    const resultado = validarFaixasProduto([faixa(5, null, 11), faixa(30, null, 8.7)], PRODUTOS)
+    expect(resultado).toBe('O Café 250g tem duas faixas sem teto. Só a última pode ficar sem teto.')
+  })
+
+  it('valida so os produtos presentes na lista (um produto so e permitido)', () => {
+    expect(
+      validarFaixasProduto(
+        [
+          { produtoId: 'p500', kgMin: 5, kgMax: 25, precoUnit: 20 },
+          { produtoId: 'p500', kgMin: 30, kgMax: null, precoUnit: 18 },
+        ],
+        PRODUTOS,
+      ),
+    ).toBeNull()
+  })
+
+  it('cai no proprio produtoId como rotulo se o produto nao estiver na lista (defensivo)', () => {
+    const resultado = validarFaixasProduto([{ produtoId: 'inexistente', kgMin: 30, kgMax: null, precoUnit: 10 }], [])
+    expect(resultado).toBe(
+      'A primeira faixa do inexistente começa em 30 kg. Ela precisa começar em 5 kg, que é o pedido mínimo.',
+    )
   })
 })

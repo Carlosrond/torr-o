@@ -57,8 +57,24 @@ export interface ItemPedidoInput {
 }
 
 export interface ItemPrecificado {
-  sku: Sku
+  /** null quando o item é de um produto novo, sem SKU legado equivalente. */
+  sku: Sku | null
+  /** Presente nos itens vindos do banco (pedido_itens.produto_id é NOT NULL); ausente nos literais de teste que só testam o cálculo por SKU. */
+  produtoId?: string | null
   qtdPacotes: number
   precoUnit: number
   subtotal: number
+}
+
+/** Produto do catálogo — substitui aos poucos o enum fixo `Sku` (250g/500g). */
+export interface Produto {
+  id: string
+  nome: string
+  descricao: string | null
+  pesoKg: number
+  fotoUrl: string | null
+  /** SKU legado (250g/500g) que este produto representa, ou null para produto novo. Usado só para rotular histórico de consignado que ainda não carrega produto_id. */
+  skuLegado: Sku | null
+  ativo: boolean
+  ordem: number
 }
