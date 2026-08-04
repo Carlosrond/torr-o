@@ -3,6 +3,7 @@ import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { useSalvarFaixas, usePrecos, type NovaFaixa } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
 import { dataLonga, reais } from '@/lib/formato'
+import { paraNumero } from '@/lib/numero'
 import { SKUS, type FaixaPreco, type Sku } from '@/lib/tipos'
 
 interface LinhaForm {
@@ -57,9 +58,9 @@ export default function TabelaPrecos() {
     setErroForm(null)
     const novas: NovaFaixa[] = linhas.map((linha) => ({
       sku: linha.sku,
-      kgMin: Number(linha.kgMin),
-      kgMax: linha.kgMax === '' ? null : Number(linha.kgMax),
-      precoUnit: Number(linha.precoUnit),
+      kgMin: paraNumero(linha.kgMin),
+      kgMax: linha.kgMax === '' ? null : paraNumero(linha.kgMax),
+      precoUnit: paraNumero(linha.precoUnit),
       vigenteDesde,
     }))
 

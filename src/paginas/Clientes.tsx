@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
 import { useClientes, useSalvarCliente, type Cliente } from '@/hooks/useClientes'
+import { paraNumero } from '@/lib/numero'
 import { ROTULO_CANAL, ROTULO_CONDICAO, type Canal, type CondicaoPagamento } from '@/lib/tipos'
 
 const VAZIO = {
@@ -53,7 +54,7 @@ export default function Clientes() {
       whatsapp: form.whatsapp.trim() || null,
       condicaoPadrao: form.condicaoPadrao,
       cadenciaDeclaradaDias: form.cadenciaDeclaradaDias
-        ? Number(form.cadenciaDeclaradaDias)
+        ? paraNumero(form.cadenciaDeclaradaDias)
         : null,
       ativo: form.ativo,
     })

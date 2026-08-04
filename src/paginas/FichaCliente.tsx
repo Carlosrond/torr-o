@@ -10,6 +10,7 @@ import { hojeIso } from '@/lib/data'
 import { diasParado, previsaoReposicao, saldoKg, saldoPorSku } from '@/lib/consignado'
 import { dataLonga, reais } from '@/lib/formato'
 import { porCliente } from '@/lib/insights'
+import { paraNumero } from '@/lib/numero'
 import { faixaVigente } from '@/lib/preco'
 import { oportunidadeFaixa } from '@/lib/recompra'
 import { prazoMedioPonderado } from '@/lib/prazo'
@@ -91,7 +92,7 @@ export default function FichaCliente() {
   async function registrarApuracao(evento: React.FormEvent) {
     evento.preventDefault()
     setErroApuracao(null)
-    const qtd = Number(qtdApuracao)
+    const qtd = paraNumero(qtdApuracao)
     if (!Number.isFinite(qtd) || qtd <= 0) {
       setErroApuracao('A quantidade precisa ser maior que zero.')
       return

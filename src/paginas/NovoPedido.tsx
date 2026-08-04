@@ -5,7 +5,7 @@ import { useCriarPedido } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
 import { dataLonga, kgTexto, reais } from '@/lib/formato'
-import { arredondar2 } from '@/lib/numero'
+import { arredondar2, paraNumero } from '@/lib/numero'
 import { kgTotal, precificar, totalPedido } from '@/lib/preco'
 import { vencimentos } from '@/lib/prazo'
 import { oportunidadeFaixa, type OportunidadeFaixa } from '@/lib/recompra'
@@ -37,7 +37,7 @@ export default function NovoPedido() {
     try {
       const daTabela = precificar(itensInput, faixas, data)
       const itens: ItemPrecificado[] = daTabela.map((item) => {
-        const manual = Number(precosManuais[item.sku])
+        const manual = paraNumero(precosManuais[item.sku])
         if (!ajustando || !manual || manual <= 0) return item
         const precoUnit = arredondar2(manual)
         return {
