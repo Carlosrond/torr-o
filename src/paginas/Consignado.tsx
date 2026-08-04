@@ -119,7 +119,7 @@ export default function Consignado() {
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold">Consignado a conferir</h1>
-      <p className="mt-1 text-sm text-stone-500">
+      <p className="mt-1 text-sm text-stone-700">
         Café que está no cliente e ainda não foi apurado. Registre a venda na ficha do cliente.
       </p>
 
@@ -141,11 +141,11 @@ export default function Consignado() {
               <li key={linha.clienteId} className="flex min-h-[44px] items-center gap-2 p-3">
                 <Link to={`/clientes/${linha.clienteId}`} className="min-w-0 flex-1">
                   <p className="truncate font-medium">{linha.clienteNome}</p>
-                  <p className="truncate text-sm text-stone-500">
+                  <p className="truncate text-sm tabular-nums text-stone-700">
                     {kgTexto(linha.saldoKg)} · {linha.saldoPorSku['250g']} pac. 250g ·{' '}
                     {linha.saldoPorSku['500g']} pac. 500g
                   </p>
-                  <p className="text-xs text-stone-400">
+                  <p className="text-xs text-stone-600">
                     {linha.prazoRetorno ? `Prazo: ${dataLonga(linha.prazoRetorno)}` : 'Sem prazo definido'}
                   </p>
                 </Link>
@@ -156,7 +156,7 @@ export default function Consignado() {
                       href={`https://wa.me/${whatsappLimpo}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="min-h-[32px] rounded-lg border border-stone-300 px-2 py-1 text-xs text-stone-600"
+                      className="flex min-h-11 items-center rounded-lg border border-stone-300 px-3 text-xs text-stone-600"
                     >
                       WhatsApp
                     </a>

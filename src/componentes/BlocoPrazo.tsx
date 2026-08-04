@@ -59,7 +59,7 @@ export function BlocoPrazo({ pedidos }: { pedidos: PedidoMetrica[] }) {
     <section className="space-y-4">
       <div>
         <h2 className="mb-1 font-semibold">Prazo e caixa</h2>
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-700">
           Previsto pela condição de pagamento. A cobrança e a baixa ficam no ERP que emite a NF.
         </p>
       </div>
@@ -83,7 +83,7 @@ export function BlocoPrazo({ pedidos }: { pedidos: PedidoMetrica[] }) {
           {condicoes.map((item) => (
             <li key={item.condicao} className="flex justify-between p-3 text-sm">
               <span>{ROTULO_CONDICAO[item.condicao]}</span>
-              <span>
+              <span className="tabular-nums">
                 {item.percentual}% · {reais(item.valor)}
               </span>
             </li>
@@ -99,7 +99,7 @@ export function BlocoPrazo({ pedidos }: { pedidos: PedidoMetrica[] }) {
           <ul className="space-y-2 rounded-xl bg-white p-4 shadow">
             {caixa.map((semana) => (
               <li key={semana.semana}>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm tabular-nums">
                   <span>{dataCurta(semana.semana)}</span>
                   <span>{reais(semana.valor)}</span>
                 </div>
@@ -126,7 +126,7 @@ export function BlocoPrazo({ pedidos }: { pedidos: PedidoMetrica[] }) {
             {prazoPorCliente.map((cliente) => (
               <li key={cliente.nome} className="flex justify-between p-3 text-sm">
                 <span>{cliente.nome}</span>
-                <span>
+                <span className="tabular-nums">
                   {cliente.dias} dias · {reais(cliente.valor)}
                 </span>
               </li>

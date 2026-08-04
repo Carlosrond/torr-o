@@ -1,5 +1,5 @@
 export function Carregando({ texto = 'Carregando…' }: { texto?: string }) {
-  return <p className="p-6 text-center text-sm text-stone-500">{texto}</p>
+  return <p className="p-6 text-center text-sm text-stone-700">{texto}</p>
 }
 
 export function Erro({ mensagem }: { mensagem: string }) {
@@ -12,5 +12,5 @@ export function Erro({ mensagem }: { mensagem: string }) {
 }
 
 export function Vazio({ mensagem }: { mensagem: string }) {
-  return <p className="p-8 text-center text-sm text-stone-500">{mensagem}</p>
+  return <p className="p-8 text-center text-sm text-stone-700">{mensagem}</p>
 }

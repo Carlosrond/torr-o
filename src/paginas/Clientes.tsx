@@ -85,7 +85,7 @@ export default function Clientes() {
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar cliente"
-          className="flex-1 rounded-lg border border-stone-300 px-3 py-2"
+          className="flex-1 rounded-lg border border-stone-300 px-3 py-3"
         />
         <button
           onClick={abrirNovo}
@@ -102,12 +102,12 @@ export default function Clientes() {
             value={form.nome}
             onChange={(e) => setForm({ ...form, nome: e.target.value })}
             placeholder="Nome do cliente"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           />
           <select
             value={form.canal}
             onChange={(e) => setForm({ ...form, canal: e.target.value as Canal })}
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           >
             {Object.entries(ROTULO_CANAL).map(([valor, rotulo]) => (
               <option key={valor} value={valor}>
@@ -120,7 +120,7 @@ export default function Clientes() {
               required
               value={form.vendedorId}
               onChange={(e) => setForm({ ...form, vendedorId: e.target.value })}
-              className="w-full rounded-lg border border-stone-300 px-3 py-2"
+              className="w-full rounded-lg border border-stone-300 px-3 py-3"
             >
               <option value="" disabled>
                 Vendedor responsável
@@ -139,13 +139,13 @@ export default function Clientes() {
               value={form.cidade}
               onChange={(e) => setForm({ ...form, cidade: e.target.value })}
               placeholder="Cidade"
-              className="flex-1 rounded-lg border border-stone-300 px-3 py-2"
+              className="flex-1 rounded-lg border border-stone-300 px-3 py-3"
             />
             <input
               value={form.whatsapp}
               onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
               placeholder="WhatsApp"
-              className="flex-1 rounded-lg border border-stone-300 px-3 py-2"
+              className="flex-1 rounded-lg border border-stone-300 px-3 py-3"
             />
           </div>
           <select
@@ -153,7 +153,7 @@ export default function Clientes() {
             onChange={(e) =>
               setForm({ ...form, condicaoPadrao: e.target.value as CondicaoPagamento })
             }
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           >
             {Object.entries(ROTULO_CONDICAO).map(([valor, rotulo]) => (
               <option key={valor} value={valor}>
@@ -168,7 +168,7 @@ export default function Clientes() {
               min={1}
               value={form.cadenciaDeclaradaDias}
               onChange={(e) => setForm({ ...form, cadenciaDeclaradaDias: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
+              className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
             />
           </label>
           <label className="block text-sm text-stone-600">
@@ -179,7 +179,7 @@ export default function Clientes() {
               required
               value={form.prazoConsignadoDias}
               onChange={(e) => setForm({ ...form, prazoConsignadoDias: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
+              className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
             />
           </label>
           <label className="flex items-center gap-2 text-sm">
@@ -211,7 +211,7 @@ export default function Clientes() {
       )}
 
       {filtrados.length === 0 ? (
-        <Vazio mensagem="Nenhum cliente cadastrado ainda." />
+        <Vazio mensagem="Nenhum cliente ainda. Toque em Novo para cadastrar o primeiro." />
       ) : (
         <ul className="divide-y divide-stone-200 overflow-hidden rounded-xl bg-white shadow">
           {filtrados.map((cliente) => (
@@ -220,12 +220,12 @@ export default function Clientes() {
                 <Link to={`/clientes/${cliente.id}`} className="font-medium underline">
                   {cliente.nome}
                 </Link>
-                <p className="text-sm text-stone-500">
+                <p className="text-sm text-stone-700">
                   {ROTULO_CANAL[cliente.canal]} · {ROTULO_CONDICAO[cliente.condicaoPadrao]}
                   {cliente.ativo ? '' : ' · inativo'}
                 </p>
               </div>
-              <button onClick={() => abrirEdicao(cliente)} className="text-sm text-stone-500 underline">
+              <button onClick={() => abrirEdicao(cliente)} className="text-sm text-stone-700 underline">
                 Editar
               </button>
             </li>

@@ -96,7 +96,7 @@ export default function Painel() {
           <button
             key={janela.dias}
             onClick={() => setDias(janela.dias)}
-            className={`rounded-full px-4 py-1 text-sm ${
+            className={`flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-medium ${
               dias === janela.dias ? 'bg-amber-800 text-white' : 'bg-white text-stone-600'
             }`}
           >
@@ -106,7 +106,7 @@ export default function Painel() {
       </div>
 
       <section>
-        <h2 className="mb-2 font-semibold">Venda</h2>
+        <h2 className="mb-2 font-semibold">Quanto vendeu</h2>
         <div className="grid grid-cols-2 gap-3">
           <Cartao titulo="Volume" valor={kgTexto(r.kg)} detalhe={`${r.quantidade} pedidos`} />
           <Cartao titulo="Receita" valor={reais(r.receita)} />
@@ -148,7 +148,7 @@ export default function Painel() {
           <ul className="space-y-2 rounded-xl bg-white p-4 shadow">
             {serie.map((semana) => (
               <li key={semana.semana}>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm tabular-nums">
                   <span>{dataCurta(semana.semana)}</span>
                   <span>
                     {kgTexto(semana.kg)} · {reais(semana.receita)}
@@ -172,7 +172,7 @@ export default function Painel() {
           {ranking.map((cliente) => (
             <li key={cliente.clienteId} className="flex justify-between p-3 text-sm">
               <span>{cliente.clienteNome}</span>
-              <span>
+              <span className="tabular-nums">
                 {kgTexto(cliente.kg)} · {reais(cliente.receita)}
               </span>
             </li>
@@ -186,7 +186,7 @@ export default function Painel() {
           {canais.map((canal) => (
             <li key={canal.canal} className="flex justify-between p-3 text-sm">
               <span>{ROTULO_CANAL[canal.canal]}</span>
-              <span>
+              <span className="tabular-nums">
                 {kgTexto(canal.kg)} · {reais(canal.receita)}
               </span>
             </li>
@@ -197,7 +197,7 @@ export default function Painel() {
       <BlocoPrazo pedidos={dados.janela} />
 
       <section>
-        <h2 className="mb-2 font-semibold">Base de clientes</h2>
+        <h2 className="mb-2 font-semibold">Seus clientes</h2>
         <div className="grid grid-cols-3 gap-3">
           <Cartao titulo="Ativos" valor={String(base.ativos)} />
           <Cartao titulo="Novos" valor={String(base.novos)} />

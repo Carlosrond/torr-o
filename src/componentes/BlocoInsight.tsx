@@ -1,5 +1,5 @@
 import { Vazio } from './Estado'
-import { dataCurta } from '@/lib/formato'
+import { dataCurta, kgTexto } from '@/lib/formato'
 import type { LinhaCliente } from '@/lib/insights'
 import type { Sinal } from '@/lib/recompra'
 
@@ -46,17 +46,16 @@ export function BlocoInsight({ linhas }: { linhas: LinhaCliente[] }) {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-medium">{linha.clienteNome}</p>
-                  <p className="text-sm text-stone-700">
-                    Última compra {dataCurta(linha.ultimaCompra)} ·{' '}
-                    {linha.kgUltimo.toLocaleString('pt-BR')} kg
+                  <p className="text-sm tabular-nums text-stone-700">
+                    Última compra {dataCurta(linha.ultimaCompra)} · {kgTexto(linha.kgUltimo)}
                     {linha.previsao.cadenciaDias !== null &&
                       ` · a cada ${linha.previsao.cadenciaDias} dias`}
                   </p>
-                  <p className="text-xs text-stone-600">
+                  <p className="text-xs tabular-nums text-stone-600">
                     {ROTULO_CONFIANCA[linha.previsao.confianca]}
                     {linha.previsao.origemCadencia === 'declarada' && ' · cadência informada'}
                     {linha.previsao.qtdSugeridaKg !== null &&
-                      ` · sugerir ${linha.previsao.qtdSugeridaKg.toLocaleString('pt-BR')} kg`}
+                      ` · sugerir ${kgTexto(linha.previsao.qtdSugeridaKg)}`}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">

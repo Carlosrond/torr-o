@@ -26,7 +26,7 @@ function usePercentualDaLinha(vendedorId: string) {
 function LinhaPercentual({ membro }: { membro: MembroEquipe }) {
   const percentual = usePercentualDaLinha(membro.id)
   return (
-    <p className="text-sm text-stone-500">
+    <p className="text-sm text-stone-700">
       {ROTULO_PAPEL[membro.papel]} · {membro.clientesAtivos} cliente(s) ativo(s)
       {percentual !== null && ` · comissão ${percentual}%`}
     </p>
@@ -118,7 +118,7 @@ export default function Equipe() {
             value={novo.nome}
             onChange={(e) => setNovo({ ...novo, nome: e.target.value })}
             placeholder="Nome"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           />
           <input
             required
@@ -126,12 +126,12 @@ export default function Equipe() {
             value={novo.email}
             onChange={(e) => setNovo({ ...novo, email: e.target.value })}
             placeholder="E-mail"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           />
           <select
             value={novo.papel}
             onChange={(e) => setNovo({ ...novo, papel: e.target.value as PapelUsuario })}
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           >
             {Object.entries(ROTULO_PAPEL).map(([valor, rotulo]) => (
               <option key={valor} value={valor}>
@@ -146,9 +146,9 @@ export default function Equipe() {
             value={novo.senha}
             onChange={(e) => setNovo({ ...novo, senha: e.target.value })}
             placeholder="Senha inicial (mín. 8 caracteres)"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           />
-          <p className="text-xs text-stone-500">
+          <p className="text-xs text-stone-700">
             Avise a pessoa para trocar essa senha assim que entrar pela primeira vez.
           </p>
           {criar.error && <p className="text-sm text-red-700">{criar.error.message}</p>}
@@ -179,7 +179,7 @@ export default function Equipe() {
             value={edicao.nome}
             onChange={(e) => setEdicao({ ...edicao, nome: e.target.value })}
             placeholder="Nome"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           />
           <select
             value={edicao.papel}
@@ -209,14 +209,14 @@ export default function Equipe() {
               value={comissaoTexto}
               onChange={(e) => setComissaoTexto(e.target.value)}
               placeholder="2"
-              className="w-full rounded-lg border border-stone-300 px-3 py-2"
+              className="w-full rounded-lg border border-stone-300 px-3 py-3"
             />
-            <p className="mt-1 text-xs text-stone-500">
+            <p className="mt-1 text-xs text-stone-700">
               Vale a partir de hoje. Não altera comissão de mês já fechado. Pode ser 0 (salário fixo).
             </p>
           </div>
           {ehAPropriaConta && (
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-stone-700">
               Você não pode mudar seu próprio papel nem se desativar — peça a outro admin.
             </p>
           )}
@@ -226,7 +226,7 @@ export default function Equipe() {
             value={edicao.senha}
             onChange={(e) => setEdicao({ ...edicao, senha: e.target.value })}
             placeholder="Nova senha (opcional, mín. 8 caracteres)"
-            className="w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="w-full rounded-lg border border-stone-300 px-3 py-3"
           />
           {atualizar.error && <p className="text-sm text-red-700">{atualizar.error.message}</p>}
           <div className="flex gap-2">
@@ -249,7 +249,7 @@ export default function Equipe() {
       )}
 
       {!equipe || equipe.length === 0 ? (
-        <Vazio mensagem="Nenhuma pessoa cadastrada ainda." />
+        <Vazio mensagem="Nenhuma pessoa cadastrada ainda. Toque em Nova pessoa para criar o primeiro acesso." />
       ) : (
         <ul className="divide-y divide-stone-200 overflow-hidden rounded-xl bg-white shadow">
           {equipe.map((membro) => (
@@ -259,10 +259,10 @@ export default function Equipe() {
                   {membro.nome}
                   {!membro.ativo && ' · inativo'}
                 </p>
-                <p className="text-sm text-stone-500">{membro.email}</p>
+                <p className="text-sm text-stone-700">{membro.email}</p>
                 <LinhaPercentual membro={membro} />
               </div>
-              <button onClick={() => abrirEdicao(membro)} className="text-sm text-stone-500 underline">
+              <button onClick={() => abrirEdicao(membro)} className="text-sm text-stone-700 underline">
                 Editar
               </button>
             </li>

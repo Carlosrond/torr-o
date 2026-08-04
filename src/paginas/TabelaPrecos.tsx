@@ -108,9 +108,9 @@ export default function TabelaPrecos() {
       <section>
         <h1 className="text-xl font-bold">Tabela de preços em vigor</h1>
         {emVigor.length === 0 ? (
-          <Vazio mensagem="Nenhuma faixa cadastrada." />
+          <Vazio mensagem="Nenhuma faixa cadastrada. Adicione uma faixa no formulário abaixo." />
         ) : (
-          <table className="mt-3 w-full overflow-hidden rounded-xl bg-white text-sm shadow">
+          <table className="mt-3 w-full overflow-hidden rounded-xl bg-white text-sm tabular-nums shadow">
             <thead className="bg-stone-100 text-left">
               <tr>
                 <th className="p-2">Pacote</th>
@@ -137,7 +137,7 @@ export default function TabelaPrecos() {
 
       <form onSubmit={enviar} className="space-y-3 rounded-xl bg-white p-4 shadow">
         <h2 className="font-semibold">Nova versão da tabela</h2>
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-700">
           Salvar substitui inteiramente a versão gravada nesta data de vigência. Datas
           anteriores continuam intactas como histórico dos pedidos já lançados.
         </p>
@@ -149,7 +149,7 @@ export default function TabelaPrecos() {
             required
             value={vigenteDesde}
             onChange={(e) => setVigenteDesde(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
+            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
           />
         </label>
 
@@ -157,20 +157,20 @@ export default function TabelaPrecos() {
           <button
             type="button"
             onClick={carregarDoAtual}
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm"
+            className="min-h-11 rounded-lg border border-stone-300 px-3 text-sm"
           >
             Copiar a tabela atual
           </button>
           <button
             type="button"
             onClick={adicionarLinha}
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm"
+            className="min-h-11 rounded-lg border border-stone-300 px-3 text-sm"
           >
             + Faixa
           </button>
         </div>
 
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-700">
           Faixas fechadas de 5 em 5 (o pedido é sempre múltiplo de 5 kg): 5 a 25, 30 a 50, 55 sem
           teto.
         </p>
@@ -184,7 +184,7 @@ export default function TabelaPrecos() {
                 copia[indice] = { ...linha, sku: e.target.value as Sku }
                 setLinhas(copia)
               }}
-              className="rounded-lg border border-stone-300 px-2 py-2"
+              className="rounded-lg border border-stone-300 px-2 py-3"
             >
               {SKUS.map((sku) => (
                 <option key={sku} value={sku}>
@@ -201,7 +201,7 @@ export default function TabelaPrecos() {
                 copia[indice] = { ...linha, kgMin: e.target.value }
                 setLinhas(copia)
               }}
-              className="rounded-lg border border-stone-300 px-2 py-2"
+              className="rounded-lg border border-stone-300 px-2 py-3"
             />
             <input
               placeholder="kg max"
@@ -212,7 +212,7 @@ export default function TabelaPrecos() {
                 copia[indice] = { ...linha, kgMax: e.target.value }
                 setLinhas(copia)
               }}
-              className="rounded-lg border border-stone-300 px-2 py-2"
+              className="rounded-lg border border-stone-300 px-2 py-3"
             />
             <input
               placeholder="preço"
@@ -223,7 +223,7 @@ export default function TabelaPrecos() {
                 copia[indice] = { ...linha, precoUnit: e.target.value }
                 setLinhas(copia)
               }}
-              className="rounded-lg border border-stone-300 px-2 py-2"
+              className="rounded-lg border border-stone-300 px-2 py-3"
             />
           </div>
         ))}

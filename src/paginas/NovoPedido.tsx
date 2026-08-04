@@ -152,7 +152,7 @@ export default function NovoPedido() {
               onChange={(e) => setQuantidades({ ...quantidades, [sku]: e.target.value })}
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3 text-lg"
             />
-            <span className="mt-1 block text-xs text-stone-400">
+            <span className="mt-1 block text-xs text-stone-600">
               {pacotesPara5kg(sku)} pacotes = {kgTexto(5)}
             </span>
           </label>
@@ -160,8 +160,8 @@ export default function NovoPedido() {
       </div>
 
       <div className="rounded-xl bg-white p-4 shadow">
-        <p className="text-sm text-stone-500">Volume do pedido</p>
-        <p className="text-2xl font-bold">{kgTexto(kg)}</p>
+        <p className="text-sm text-stone-700">Volume do pedido</p>
+        <p className="text-2xl font-bold tabular-nums">{kgTexto(kg)}</p>
 
         {kg > 0 && !ehMultiploValido(kg) && (
           <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
@@ -179,7 +179,7 @@ export default function NovoPedido() {
 
         {calculo && !('erro' in calculo) && (
           <>
-            <ul className="mt-3 space-y-1 text-sm">
+            <ul className="mt-3 space-y-1 text-sm tabular-nums">
               {calculo.itens.map((item) => {
                 const daTabela = calculo.tabela.find((t) => t.sku === item.sku)
                 const alterado = daTabela && daTabela.precoUnit !== item.precoUnit
@@ -196,9 +196,9 @@ export default function NovoPedido() {
                 )
               })}
             </ul>
-            <p className="mt-3 text-2xl font-bold">{reais(calculo.total.totalValor)}</p>
+            <p className="mt-3 text-2xl font-bold tabular-nums">{reais(calculo.total.totalValor)}</p>
             {vencimentos(data, condicaoEfetiva, calculo.total.totalValor).length > 0 && (
-              <p className="text-sm text-stone-500">
+              <p className="text-sm text-stone-700">
                 Previsto entrar:{' '}
                 {vencimentos(data, condicaoEfetiva, calculo.total.totalValor)
                   .map((v) => `${reais(v.valor)} em ${dataLonga(v.data)}`)
@@ -209,10 +209,9 @@ export default function NovoPedido() {
         )}
 
         {oportunidade && (
-          <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-            Faltam {oportunidade.kgFaltando.toLocaleString('pt-BR')} kg para o pacote de{' '}
-            {oportunidade.sku} cair de {reais(oportunidade.precoAtual)} para{' '}
-            {reais(oportunidade.precoMelhor)}.
+          <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm tabular-nums text-amber-900">
+            Faltam {kgTexto(oportunidade.kgFaltando)} para o pacote de {oportunidade.sku} cair de{' '}
+            {reais(oportunidade.precoAtual)} para {reais(oportunidade.precoMelhor)}.
           </p>
         )}
       </div>
@@ -261,7 +260,7 @@ export default function NovoPedido() {
                 step="0.01"
                 value={precosManuais[sku]}
                 onChange={(e) => setPrecosManuais({ ...precosManuais, [sku]: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
+                className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
               />
             </label>
           ))}
@@ -272,7 +271,7 @@ export default function NovoPedido() {
         value={observacao}
         onChange={(e) => setObservacao(e.target.value)}
         placeholder="Observação (opcional)"
-        className="w-full rounded-lg border border-stone-300 px-3 py-2"
+        className="w-full rounded-lg border border-stone-300 px-3 py-3"
       />
 
       {criar.error && <Erro mensagem={criar.error.message} />}

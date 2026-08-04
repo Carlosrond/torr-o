@@ -8,7 +8,7 @@ import { useCancelarPedido, usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
 import { hojeIso } from '@/lib/data'
 import { diasParado, previsaoReposicao, saldoKg, saldoPorSku } from '@/lib/consignado'
-import { dataLonga, reais } from '@/lib/formato'
+import { dataLonga, kgTexto, reais } from '@/lib/formato'
 import { porCliente } from '@/lib/insights'
 import { paraNumero } from '@/lib/numero'
 import { faixaVigente } from '@/lib/preco'
@@ -124,11 +124,11 @@ export default function FichaCliente() {
   return (
     <div className="space-y-6 p-4">
       <div>
-        <Link to="/clientes" className="text-sm text-stone-500 underline">
+        <Link to="/clientes" className="text-sm text-stone-700 underline">
           ← Clientes
         </Link>
         <h1 className="mt-1 text-xl font-bold">{cliente.nome}</h1>
-        <p className="text-sm text-stone-500">
+        <p className="text-sm text-stone-700">
           {ROTULO_CANAL[cliente.canal]} · {ROTULO_CONDICAO[cliente.condicaoPadrao]}
           {cliente.cidade ? ` · ${cliente.cidade}` : ''}
         </p>
@@ -159,7 +159,7 @@ export default function FichaCliente() {
           valor={
             linha?.previsao.qtdSugeridaKg === null || !linha
               ? '—'
-              : `${linha.previsao.qtdSugeridaKg.toLocaleString('pt-BR')} kg`
+              : kgTexto(linha.previsao.qtdSugeridaKg)
           }
         />
         <Cartao
@@ -177,9 +177,9 @@ export default function FichaCliente() {
       )}
 
       {oportunidade && (
-        <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-          Argumento de venda: com {oportunidade.kgFaltando.toLocaleString('pt-BR')} kg a mais, o
-          pacote de {skuMaisComprado} cai de {reais(oportunidade.precoAtual)} para{' '}
+        <p className="rounded-xl bg-amber-50 p-4 text-sm tabular-nums text-amber-900">
+          Argumento de venda: com {kgTexto(oportunidade.kgFaltando)} a mais, o pacote de{' '}
+          {skuMaisComprado} cai de {reais(oportunidade.precoAtual)} para{' '}
           {reais(oportunidade.precoMelhor)} — {reais(oportunidade.economiaPorPacote)} por pacote.
         </p>
       )}
@@ -190,7 +190,7 @@ export default function FichaCliente() {
           <div className="grid grid-cols-2 gap-3">
             <Cartao
               titulo="Saldo no cliente"
-              valor={`${saldoKg(movs).toLocaleString('pt-BR')} kg`}
+              valor={kgTexto(saldoKg(movs))}
               detalhe={valorSaldoConsignado !== null ? reais(valorSaldoConsignado) : undefined}
             />
             <Cartao
@@ -212,7 +212,7 @@ export default function FichaCliente() {
                 <select
                   value={skuApuracao}
                   onChange={(e) => setSkuApuracao(e.target.value as Sku)}
-                  className="rounded-lg border border-stone-300 px-2 py-2"
+                  className="rounded-lg border border-stone-300 px-2 py-3"
                 >
                   {skusComSaldo.map((sku) => (
                     <option key={sku} value={sku}>
@@ -223,7 +223,7 @@ export default function FichaCliente() {
                 <select
                   value={tipoApuracao}
                   onChange={(e) => setTipoApuracao(e.target.value as 'venda_apurada' | 'retorno')}
-                  className="rounded-lg border border-stone-300 px-2 py-2"
+                  className="rounded-lg border border-stone-300 px-2 py-3"
                 >
                   <option value="venda_apurada">Vendeu</option>
                   <option value="retorno">Devolveu</option>
@@ -235,13 +235,13 @@ export default function FichaCliente() {
                   placeholder="Qtd. pacotes"
                   value={qtdApuracao}
                   onChange={(e) => setQtdApuracao(e.target.value)}
-                  className="rounded-lg border border-stone-300 px-3 py-2"
+                  className="rounded-lg border border-stone-300 px-3 py-3"
                 />
                 <input
                   type="date"
                   value={dataApuracao}
                   onChange={(e) => setDataApuracao(e.target.value)}
-                  className="rounded-lg border border-stone-300 px-3 py-2"
+                  className="rounded-lg border border-stone-300 px-3 py-3"
                 />
               </div>
               {erroApuracao && <p className="text-sm text-red-700">{erroApuracao}</p>}
@@ -261,7 +261,7 @@ export default function FichaCliente() {
       <section>
         <h2 className="mb-2 font-semibold">Histórico de pedidos</h2>
         {doCliente.length === 0 ? (
-          <Vazio mensagem="Esse cliente ainda não comprou." />
+          <Vazio mensagem="Esse cliente ainda não comprou. Lance o primeiro pedido em Pedido." />
         ) : (
           <ul className="divide-y divide-stone-200 rounded-xl bg-white shadow">
             {[...doCliente]
@@ -271,13 +271,13 @@ export default function FichaCliente() {
                   <span>
                     {dataLonga(pedido.data)} · {ROTULO_CONDICAO[pedido.condicao]}
                   </span>
-                  <span className="flex items-center gap-2">
-                    {pedido.totalKg.toLocaleString('pt-BR')} kg · {reais(pedido.totalValor)}
+                  <span className="flex items-center gap-2 tabular-nums">
+                    {kgTexto(pedido.totalKg)} · {reais(pedido.totalValor)}
                     <button
                       type="button"
                       onClick={() => cancelarPedidoLancado(pedido.id)}
                       disabled={cancelar.isPending}
-                      className="text-xs text-stone-400 underline disabled:opacity-50"
+                      className="text-xs text-stone-600 underline disabled:opacity-50"
                     >
                       Cancelar
                     </button>

@@ -48,13 +48,19 @@ export default function Comissao() {
       <h1 className="mb-4 text-lg font-bold">Comissão</h1>
 
       <div className="mb-4 flex items-center justify-between rounded-xl bg-white p-3 shadow">
-        <button onClick={() => setReferencia(mesAnterior(referencia))} className="px-3 py-1 text-stone-500">
+        <button
+          onClick={() => setReferencia(mesAnterior(referencia))}
+          className="flex min-h-11 min-w-11 items-center justify-center text-stone-700"
+        >
           ◀
         </button>
-        <span className="font-medium">
+        <span className="font-medium tabular-nums">
           {inicio.slice(5, 7)}/{inicio.slice(0, 4)}
         </span>
-        <button onClick={() => setReferencia(mesSeguinte(referencia))} className="px-3 py-1 text-stone-500">
+        <button
+          onClick={() => setReferencia(mesSeguinte(referencia))}
+          className="flex min-h-11 min-w-11 items-center justify-center text-stone-700"
+        >
           ▶
         </button>
       </div>
@@ -63,7 +69,7 @@ export default function Comissao() {
         <select
           value={vendedorId ?? ''}
           onChange={(e) => setVendedorId(e.target.value || null)}
-          className="mb-4 w-full rounded-lg border border-stone-300 px-3 py-2"
+          className="mb-4 w-full rounded-lg border border-stone-300 px-3 py-3"
         >
           <option value="">Selecione um vendedor</option>
           {equipe?.map((membro) => (
@@ -81,7 +87,7 @@ export default function Comissao() {
       ) : erroRegras || erroBases ? (
         <Erro mensagem={(erroRegras ?? erroBases)!.message} />
       ) : !resumo || resumo.quantidade === 0 ? (
-        <Vazio mensagem="Nenhuma venda comissionável nesse mês." />
+        <Vazio mensagem="Nenhuma venda comissionável nesse mês. Assim que houver pedido ou consignado apurado, a comissão aparece aqui." />
       ) : (
         <>
           <div className="mb-4 grid grid-cols-2 gap-3">
@@ -100,19 +106,19 @@ export default function Comissao() {
               <li key={indice} className="flex items-center justify-between p-3 text-sm">
                 <div>
                   <p className="font-medium">{base.descricao}</p>
-                  <p className="text-stone-500">
+                  <p className="text-stone-700">
                     {dataCurta(base.data)} · {ROTULO_ORIGEM[base.origem]}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right tabular-nums">
                   <p>{reais(base.valor)}</p>
-                  <p className="text-stone-500">{reais(comissaoDaBase(base, regras!))}</p>
+                  <p className="text-stone-700">{reais(comissaoDaBase(base, regras!))}</p>
                 </div>
               </li>
             ))}
           </ul>
 
-          <p className="text-xs text-stone-500">
+          <p className="text-xs text-stone-700">
             Comissão calculada sobre o valor vendido. Cobrança e pagamento ficam no ERP — aqui é só o
             cálculo.
           </p>
