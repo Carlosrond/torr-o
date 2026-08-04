@@ -13,12 +13,16 @@ Abre em `http://localhost:5173`.
 
 ## Entrar
 
-| Papel | E-mail | Senha |
-|---|---|---|
-| Admin (vê tudo, edita preços) | carlos.eduardo@rondelli.com.br | `Torrao2026!` |
-| Vendedor (lança pedido) | vendedor@torrao.local | `Torrao2026!` |
+Dois usuários já existem no projeto:
 
-**Troque essas senhas.** São temporárias, criadas para o app subir. Dá para trocar no dashboard do Supabase em Authentication → Users → o usuário → Reset password.
+| Papel | E-mail |
+|---|---|
+| Admin (vê tudo, edita preços) | carlos.eduardo@rondelli.com.br |
+| Vendedor de teste (lança pedido) | vendedor@torrao.local |
+
+As senhas **não ficam neste repositório** — ele é público. Para definir ou trocar: dashboard do Supabase → Authentication → Users → o usuário → Reset password.
+
+O cadastro público está **desligado** de propósito (Authentication → Providers → "Allow new users to sign up"). Usuário novo se cria pelo dashboard, senão qualquer pessoa se registra e lê a tabela de preços.
 
 ## Banco
 
