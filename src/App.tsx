@@ -5,9 +5,11 @@ import { RotaProtegida } from '@/componentes/RotaProtegida'
 import { ProvedorAuth } from '@/hooks/useAuth'
 import Clientes from '@/paginas/Clientes'
 import Comissao from '@/paginas/Comissao'
+import Consignado from '@/paginas/Consignado'
 import Equipe from '@/paginas/Equipe'
 import FichaCliente from '@/paginas/FichaCliente'
 import Login from '@/paginas/Login'
+import Mais from '@/paginas/Mais'
 import NovoPedido from '@/paginas/NovoPedido'
 import Painel from '@/paginas/Painel'
 import TabelaPrecos from '@/paginas/TabelaPrecos'
@@ -33,7 +35,9 @@ export default function App() {
               <Route path="/" element={<NovoPedido />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/clientes/:id" element={<FichaCliente />} />
+              <Route path="/consignado" element={<Consignado />} />
               <Route path="/painel" element={<Painel />} />
+              <Route path="/mais" element={<Mais />} />
               <Route path="/comissao" element={<Comissao />} />
               <Route
                 path="/precos"
