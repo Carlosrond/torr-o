@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 
-export type PapelUsuario = 'admin' | 'vendedor'
+export type PapelUsuario = 'admin' | 'vendedor' | 'motorista'
 
 export interface MembroEquipe {
   id: string

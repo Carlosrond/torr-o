@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
-export type Papel = 'admin' | 'vendedor'
+export type Papel = 'admin' | 'vendedor' | 'motorista'
 
 interface Auth {
   sessao: Session | null

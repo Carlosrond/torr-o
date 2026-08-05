@@ -1,16 +1,28 @@
 import { Navigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth, type Papel } from '@/hooks/useAuth'
 import { Carregando, Erro } from './Estado'
+
+/** Onde cada papel cai ao entrar, e para onde volta se tentar rota que não é dele. */
+export const ROTA_INICIAL: Record<Papel, string> = {
+  admin: '/',
+  vendedor: '/',
+  motorista: '/entregas',
+}
 
 export function RotaProtegida({
   children,
   soAdmin = false,
+  papeis,
 }: {
   children: ReactNode
   soAdmin?: boolean
+  /** Papéis que podem abrir a rota. Ausente = qualquer papel autenticado e ativo. */
+  papeis?: Papel[]
 }) {
   const { sessao, papel, ativo, carregando, erroPerfil } = useAuth()
+  const exigidos = soAdmin ? (['admin'] as Papel[]) : papeis
+
   if (carregando) return <Carregando />
   if (!sessao) return <Navigate to="/entrar" replace />
   if (!ativo) {
@@ -18,15 +30,17 @@ export function RotaProtegida({
     // só com telas vazias e ninguém entenderia o motivo
     return <Erro mensagem="Seu acesso foi desativado. Fale com o administrador do Torrão." />
   }
-  if (soAdmin && papel === null) {
-    // falha de rede não pode rebaixar admin em silêncio nem girar para sempre: diz o que
+  if (exigidos && papel === null) {
+    // falha de rede não pode rebaixar ninguém em silêncio nem girar para sempre: diz o que
     // aconteceu. A leitura do perfil tem retry e refaz sozinha ao voltar para a aba.
     if (erroPerfil) {
-      return <Erro mensagem={`Não foi possível confirmar seu acesso de administrador: ${erroPerfil}`} />
+      return <Erro mensagem={`Não foi possível confirmar seu acesso: ${erroPerfil}`} />
     }
-    // papel ainda carregando (sessao ja existe, mas o profile nao voltou) -- nao decide o redirect ainda
+    // papel ainda carregando (sessão já existe, mas o profile não voltou) -- não decide ainda
     return <Carregando />
   }
-  if (soAdmin && papel !== 'admin') return <Navigate to="/" replace />
+  if (exigidos && papel !== null && !exigidos.includes(papel)) {
+    return <Navigate to={ROTA_INICIAL[papel]} replace />
+  }
   return <>{children}</>
 }

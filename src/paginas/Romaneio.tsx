@@ -1,7 +1,8 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { Carregando, Erro } from '@/componentes/Estado'
 import { usePedido } from '@/hooks/usePedido'
-import { dataLonga, kgTexto, reais } from '@/lib/formato'
+import { fardosDeKg, fardosDoItem } from '@/lib/entregas'
+import { dataLonga, kgTexto, numeroTexto, reais } from '@/lib/formato'
 import { ROTULO_CANAL, ROTULO_CONDICAO } from '@/lib/tipos'
 
 /** Papel, não tela de app: fundo branco fixo, texto preto no impresso, cabe numa folha A4. */
@@ -61,11 +62,12 @@ export default function Romaneio() {
         </section>
 
         <section className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[540px] border-collapse text-sm">
+          <table className="w-full min-w-[620px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-stone-400 text-left">
                 <th className="py-1 pr-2">Produto</th>
                 <th className="py-1 pr-2 text-right">Pacotes</th>
+                <th className="py-1 pr-2 text-right">Fardos</th>
                 <th className="py-1 pr-2 text-right">Peso unit.</th>
                 <th className="py-1 pr-2 text-right">Peso total</th>
                 <th className="py-1 pr-2 text-right">Preço unit.</th>
@@ -73,21 +75,33 @@ export default function Romaneio() {
               </tr>
             </thead>
             <tbody>
-              {pedido.itens.map((item) => (
+              {pedido.itens.map((item) => {
+                // null quando o peso do pacote não divide o fardo de 5 kg -- "—" em vez de número inventado
+                const fardos = fardosDoItem(item.qtdPacotes, item.pesoUnitario)
+                return (
                 <tr key={item.produtoId} className="border-b border-stone-200">
                   <td className="py-1 pr-2">{item.nome}</td>
                   <td className="py-1 pr-2 text-right tabular-nums">{item.qtdPacotes}</td>
+                  <td className="py-1 pr-2 text-right tabular-nums">
+                    {fardos === null ? '—' : numeroTexto(fardos)}
+                  </td>
                   <td className="py-1 pr-2 text-right tabular-nums">{kgTexto(item.pesoUnitario)}</td>
                   <td className="py-1 pr-2 text-right tabular-nums">{kgTexto(item.pesoTotal)}</td>
                   <td className="py-1 pr-2 text-right tabular-nums">{reais(item.precoUnit)}</td>
                   <td className="py-1 text-right tabular-nums">{reais(item.subtotal)}</td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </section>
 
         <section className="mt-4 flex items-center justify-between rounded-xl border-2 border-stone-900 p-3">
+          {/* fardo primeiro e maior: é a medida que o motorista bate na hora de carregar */}
+          <div>
+            <p className="text-xs uppercase text-stone-600 print:text-black">Fardos</p>
+            <p className="text-2xl font-bold tabular-nums">{numeroTexto(fardosDeKg(pedido.totalKg))}</p>
+          </div>
           <div>
             <p className="text-xs uppercase text-stone-600 print:text-black">Peso total</p>
             <p className="text-2xl font-bold tabular-nums">{kgTexto(pedido.totalKg)}</p>

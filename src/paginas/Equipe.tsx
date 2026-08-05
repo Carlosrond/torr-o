@@ -14,7 +14,11 @@ import {
 } from '@/hooks/useEquipe'
 import { useRegrasComissao, useSalvarRegraComissao } from '@/hooks/useComissao'
 
-const ROTULO_PAPEL: Record<PapelUsuario, string> = { admin: 'Admin', vendedor: 'Vendedor' }
+const ROTULO_PAPEL: Record<PapelUsuario, string> = {
+  admin: 'Admin',
+  vendedor: 'Vendedor',
+  motorista: 'Motorista',
+}
 
 const NOVO_VAZIO = { nome: '', email: '', papel: 'vendedor' as PapelUsuario, senha: '' }
 
