@@ -65,9 +65,15 @@ RLS do Postgres protege **linhas**, não colunas. Custo em coluna de `produtos` 
   - Comissão e consignado: já filtram por `vendedor_id` — motorista naturalmente não vê nada; RPCs (`bases_comissao`, `pendencias_consignado`) já recusam quem não é dono/admin.
 - RPC novo `marcar_entregue(p_pedido_id uuid)` — security definer; permite **só** a transição `aberto → entregue`; chamável por motorista ativo, admin ou vendedor dono do cliente; erro amigável nos demais casos. O trigger `pedidos_sem_reescrita` continua blindando valores/cliente/data.
 
-### `criar_pedido` (alteração)
+### Congelamento do custo (trigger, não RPC)
 
-Após inserir os itens, grava em `pedido_item_custos` o custo vigente de cada produto que tiver custo em `produto_custos`. Sem custo cadastrado → sem linha.
+Trigger `after insert` em `pedido_itens` grava em `pedido_item_custos` o custo vigente do produto. Sem custo cadastrado → sem linha.
+
+Por que trigger e não alteração no `criar_pedido`: o RPC é `security invoker`; para escrever numa tabela sem policy de escrita ele teria de virar `security definer`, o que afrouxaria as policies de `pedidos`/`pedido_itens` que ele usa hoje. E uma função com `pedido_id` como argumento permitiria congelar o custo de hoje num pedido antigo, corrompendo margem histórica. Trigger não aceita argumento e vale para qualquer origem de insert.
+
+### Status inicial do pedido
+
+Hoje todo pedido nasce `entregue` (`NovoPedido.tsx`), então não existe fila de entrega. Passa a nascer `aberto` e vira `entregue` pela tela Entregas. `apenasValidos` exclui só `cancelado` e `bases_comissao` usa `status <> 'cancelado'` — nenhum número de Painel, Relatório ou Comissão muda. Pedidos já lançados continuam `entregue` e não entram na fila.
 
 ## Front-end
 
@@ -92,7 +98,7 @@ Após inserir os itens, grava em `pedido_item_custos` o custo vigente de cada pr
 
 ## Testes e verificação
 
-- Vitest nos módulos puros novos (`margem`, `entregas`) e nos pontos alterados; `npm run typecheck` + `npm run test` + `npm run lint`.
+- Vitest nos módulos puros novos (`margem`, `entregas`) e nos pontos alterados; `npm run typecheck` + `npm run test` (não existe script de lint neste repo).
 - **Prova de RLS contra o banco real** (não só leitura de SQL): com token de cada papel — motorista não lê preço de tabela, custo, comissão, consignado, cliente sem entrega pendente; vendedor não lê custo; motorista só transita `aberto → entregue`.
 - Migrations aplicadas via Management API (padrão do projeto, ver `docs/COMO-RODAR.md` / HANDOFF); com acento, montar o JSON via Python em UTF-8.
 
