@@ -55,7 +55,15 @@ describe('CORS da Edge Function gerenciar-usuario', () => {
     expect(posicaoAdmin).toBeLessThan(posicaoCorpo)
   })
 
-  it('so aceita papel admin ou vendedor', () => {
-    expect(fonte).toContain("const PAPEIS = ['admin', 'vendedor']")
+  it('so aceita os papeis do enum papel_usuario -- nem mais, nem menos', () => {
+    // Lê a lista em vez de casar o literal inteiro: o que importa é o CONJUNTO.
+    // Papel a mais aqui cria conta com permissão que a RLS não conhece; papel a menos
+    // impede o admin de criar (400 "Papel inválido") -- foi o que travou o motorista.
+    const bloco = fonte.match(/const PAPEIS = \[([^\]]*)\]/)
+    const papeis = (bloco?.[1] ?? '')
+      .split(',')
+      .map((p) => p.trim().replace(/^'|'$/g, ''))
+      .filter(Boolean)
+    expect(papeis.sort()).toEqual(['admin', 'motorista', 'vendedor'])
   })
 })

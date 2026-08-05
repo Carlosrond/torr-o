@@ -24,7 +24,7 @@ function json(corpo: unknown, status = 200) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PAPEIS = ['admin', 'vendedor']
+const PAPEIS = ['admin', 'vendedor', 'motorista']
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })

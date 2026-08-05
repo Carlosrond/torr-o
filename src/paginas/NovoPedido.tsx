@@ -221,7 +221,9 @@ export default function NovoPedido() {
       clienteId,
       data,
       condicao: condicaoEfetiva,
-      status: 'entregue',
+      // pedido lançado é entrega PENDENTE até o motorista confirmar na tela Entregas.
+      // Nenhum número muda por isso: métrica e comissão excluem só `cancelado`.
+      status: 'aberto',
       observacao: observacao.trim() || null,
       totalKg: calculo.total.totalKg,
       totalValor: calculo.total.totalValor,

@@ -8,10 +8,12 @@ import {
   useUploadFotoProduto,
   type ProdutoInput,
 } from '@/hooks/useProdutos'
+import { useProdutoCustos, useSalvarProdutoCusto } from '@/hooks/useProdutoCustos'
+import { reais } from '@/lib/formato'
 import { paraNumero } from '@/lib/numero'
 import type { Produto } from '@/lib/tipos'
 
-const VAZIO = { nome: '', descricao: '', pesoKg: '', ativo: true, ordem: '0' }
+const VAZIO = { nome: '', descricao: '', pesoKg: '', custo: '', ativo: true, ordem: '0' }
 
 /** Placeholder neutro quando o produto ainda não tem foto — nunca imagem quebrada. */
 function FotoPlaceholder({ nome }: { nome: string }) {
@@ -44,7 +46,9 @@ function SeloAtivo({ ativo }: { ativo: boolean }) {
 
 export default function Produtos() {
   const { data: produtos, isLoading, error } = useProdutos()
+  const { data: custos } = useProdutoCustos()
   const salvar = useSalvarProduto()
+  const salvarCusto = useSalvarProdutoCusto()
   const upload = useUploadFotoProduto()
 
   const [aberto, setAberto] = useState(false)
@@ -67,10 +71,13 @@ export default function Produtos() {
   }
 
   function abrirEdicao(produto: Produto) {
+    const custo = custos?.[produto.id]
     setForm({
       nome: produto.nome,
       descricao: produto.descricao ?? '',
       pesoKg: String(produto.pesoKg).replace('.', ','),
+      // vírgula decimal: é como se digita preço no Brasil, e paraNumero lê de volta
+      custo: custo === undefined ? '' : String(custo).replace('.', ','),
       ativo: produto.ativo,
       ordem: String(produto.ordem),
     })
@@ -113,6 +120,15 @@ export default function Produtos() {
       return
     }
 
+    // campo vazio = não mexer no custo (não apaga o que já está cadastrado).
+    // Custo 0 é legítimo (brinde, amostra) — por isso a checagem é de texto vazio, não de falsy.
+    const temCusto = form.custo.trim() !== ''
+    const custo = temCusto ? paraNumero(form.custo) : null
+    if (temCusto && (!Number.isFinite(custo as number) || (custo as number) < 0)) {
+      setErroFoto('Informe um custo válido, zero ou maior (ex.: 7,50).')
+      return
+    }
+
     setEnviando(true)
     try {
       let fotoUrl = fotoUrlAtual
@@ -128,7 +144,12 @@ export default function Produtos() {
         ativo: form.ativo,
         ordem: paraNumero(form.ordem) || 0,
       }
-      await salvar.mutateAsync(input)
+      const produtoId = await salvar.mutateAsync(input)
+      // gravação separada: o custo mora em outra tabela (a que a RLS esconde da equipe).
+      // Se esta falhar, o cadastro já salvou e a mensagem diz o que ficou pendente.
+      if (custo !== null) {
+        await salvarCusto.mutateAsync({ produtoId, custoUnit: custo })
+      }
       setAberto(false)
     } catch (e) {
       setErroFoto(e instanceof Error ? e.message : 'Erro ao salvar produto.')
@@ -191,6 +212,23 @@ export default function Produtos() {
                 className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
               />
             </label>
+          </div>
+
+          <div>
+            <label className="block text-sm text-stone-600">
+              Custo (R$ por pacote)
+              <input
+                inputMode="decimal"
+                value={form.custo}
+                onChange={(e) => setForm({ ...form, custo: e.target.value })}
+                placeholder="7,50"
+                className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-3"
+              />
+            </label>
+            <p className="mt-1 text-xs text-stone-700">
+              Só você vê custo e margem — vendedor e motorista não têm acesso. Cada pedido guarda o
+              custo do dia, então reajustar aqui não muda a margem do que já foi vendido.
+            </p>
           </div>
 
           <div>
@@ -276,6 +314,11 @@ export default function Produtos() {
               )}
               <p className="mt-2 truncate font-medium">{produto.nome}</p>
               <p className="text-sm text-stone-700">{produto.pesoKg.toLocaleString('pt-BR')} kg</p>
+              <p className="text-xs text-stone-600">
+                {custos?.[produto.id] === undefined
+                  ? 'Sem custo informado'
+                  : `Custo ${reais(custos[produto.id])}`}
+              </p>
               <div className="mt-1">
                 <SeloAtivo ativo={produto.ativo} />
               </div>

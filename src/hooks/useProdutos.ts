@@ -46,10 +46,11 @@ export function useProdutos() {
 /** sku_legado nunca é editável pela tela — só os 2 produtos semeados na migration têm. */
 export type ProdutoInput = Omit<Produto, 'id' | 'skuLegado'> & { id?: string }
 
+/** Devolve o id do produto salvo — o custo é gravado em seguida, e produto novo só tem id depois do insert. */
 export function useSalvarProduto() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (produto: ProdutoInput) => {
+    mutationFn: async (produto: ProdutoInput): Promise<string> => {
       const linha = {
         nome: produto.nome,
         descricao: produto.descricao,
@@ -59,9 +60,10 @@ export function useSalvarProduto() {
         ordem: produto.ordem,
       }
       const resposta = produto.id
-        ? await supabase.from('produtos').update(linha).eq('id', produto.id)
-        : await supabase.from('produtos').insert(linha)
+        ? await supabase.from('produtos').update(linha).eq('id', produto.id).select('id').single()
+        : await supabase.from('produtos').insert(linha).select('id').single()
       if (resposta.error) throw new Error(resposta.error.message)
+      return (resposta.data as { id: string }).id
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['produtos'] }),
   })
