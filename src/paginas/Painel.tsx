@@ -3,6 +3,7 @@ import { BlocoInsight } from '@/componentes/BlocoInsight'
 import { BlocoPrazo } from '@/componentes/BlocoPrazo'
 import { Cartao } from '@/componentes/Cartao'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
+import { useAuth } from '@/hooks/useAuth'
 import { useClientes } from '@/hooks/useClientes'
 import { usePedidos } from '@/hooks/usePedidos'
 import { usePrecos } from '@/hooks/usePrecos'
@@ -10,6 +11,7 @@ import { useProdutos } from '@/hooks/useProdutos'
 import { addDias, hojeIso } from '@/lib/data'
 import { dataCurta, kgTexto, numeroTexto, reais } from '@/lib/formato'
 import { porCliente } from '@/lib/insights'
+import { margemDoPeriodo } from '@/lib/margem'
 import {
   apenasValidos,
   baseDeClientes,
@@ -30,6 +32,7 @@ const JANELAS = [
 ]
 
 export default function Painel() {
+  const { papel } = useAuth()
   const { data: pedidos, isLoading, error } = usePedidos()
   const { data: faixas, error: erroPrecos } = usePrecos()
   const { data: clientes, error: erroClientes } = useClientes()
@@ -52,6 +55,7 @@ export default function Painel() {
       ranking: rankingClientes(janela, 5),
       canais: porCanal(janela),
       base: baseDeClientes(validos, inicio, hoje),
+      margem: margemDoPeriodo(janela),
     }
   }, [pedidos, faixas, produtos, inicio, hoje])
 
@@ -73,7 +77,7 @@ export default function Painel() {
   if ((pedidos ?? []).length === 0)
     return <Vazio mensagem="Nenhum pedido lançado ainda — o painel acende no primeiro pedido." />
 
-  const { resumo: r, preco, mix, serie, ranking, canais, base } = dados
+  const { resumo: r, preco, mix, serie, ranking, canais, base, margem } = dados
   const maiorReceitaSemana = Math.max(1, ...serie.map((s) => s.receita))
 
   return (
@@ -127,6 +131,30 @@ export default function Painel() {
           />
         </div>
       </section>
+
+      {/* custo e margem só para o admin -- e o banco também não deixa o vendedor ler */}
+      {papel === 'admin' && (
+        <section>
+          <h2 className="mb-2 font-semibold">Quanto sobrou</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Cartao
+              titulo="Custo"
+              valor={margem.completa ? reais(margem.custo) : '—'}
+              detalhe={margem.completa ? undefined : 'Falta custo em algum produto'}
+            />
+            <Cartao
+              titulo="Margem"
+              valor={margem.margem === null ? '—' : reais(margem.margem)}
+              detalhe={
+                margem.margemPercentual === null
+                  ? 'Cadastre o custo em Mais → Produtos'
+                  : `${numeroTexto(margem.margemPercentual)}% da receita`
+              }
+              alerta={margem.margem !== null && margem.margem < 0}
+            />
+          </div>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-2 font-semibold">Mix de produto</h2>

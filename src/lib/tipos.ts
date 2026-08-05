@@ -64,6 +64,12 @@ export interface ItemPrecificado {
   qtdPacotes: number
   precoUnit: number
   subtotal: number
+  /**
+   * Custo congelado no lançamento do pedido. null = produto sem custo cadastrado naquele
+   * dia, ou usuário sem permissão de ver custo (a RLS devolve vazio para não-admin).
+   * Opcional para os literais de teste que só exercitam preço.
+   */
+  custoUnit?: number | null
 }
 
 /** Produto do catálogo — substitui aos poucos o enum fixo `Sku` (250g/500g). */

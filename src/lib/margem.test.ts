@@ -55,6 +55,13 @@ describe('margemDosItens', () => {
     expect(m.margemPercentual).toBe(-60)
   })
 
+  it('custo ausente (campo nao vindo do banco) conta igual a null', () => {
+    const m = margemDosItens([{ qtdPacotes: 10, subtotal: 100 }])
+    expect(m.custo).toBe(0)
+    expect(m.margem).toBeNull()
+    expect(m.completa).toBe(false)
+  })
+
   it('nao acumula erro de ponto flutuante', () => {
     const m = margemDosItens([{ qtdPacotes: 3, subtotal: 30, custoUnit: 0.1 }])
     expect(m.custo).toBe(0.3)

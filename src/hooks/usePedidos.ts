@@ -39,11 +39,26 @@ interface LinhaPedido {
     qtd_pacotes: number
     preco_unit_aplicado: number
     subtotal: number
+    pedido_item_custos: unknown
   }[]
 }
 
 const SELECT_PEDIDO =
-  'id, cliente_id, data, data_entrega_prevista, condicao_pagamento, status, total_kg, total_valor, clientes(nome, canal), pedido_itens(produto_id, sku, qtd_pacotes, preco_unit_aplicado, subtotal)'
+  'id, cliente_id, data, data_entrega_prevista, condicao_pagamento, status, total_kg, total_valor, clientes(nome, canal), pedido_itens(produto_id, sku, qtd_pacotes, preco_unit_aplicado, subtotal, pedido_item_custos(custo_unit_aplicado))'
+
+/**
+ * Custo congelado do item. Vem vazio para quem não é admin (a RLS de
+ * `pedido_item_custos` só deixa admin ler) — isso não é erro, é a proteção funcionando.
+ *
+ * O PostgREST devolve OBJETO quando a FK também é PK (1-para-1) e ARRAY em outras
+ * versões. Ler as duas formas em vez de assumir uma: assumir forma de resposta já
+ * mascarou causa real de bug neste app antes.
+ */
+function custoDoItem(bruto: unknown): number | null {
+  const linha = Array.isArray(bruto) ? bruto[0] : bruto
+  const valor = (linha as { custo_unit_aplicado?: number } | null | undefined)?.custo_unit_aplicado
+  return valor === undefined || valor === null ? null : Number(valor)
+}
 
 export function usePedidos() {
   return useQuery({
@@ -71,6 +86,7 @@ export function usePedidos() {
           qtdPacotes: item.qtd_pacotes,
           precoUnit: Number(item.preco_unit_aplicado),
           subtotal: Number(item.subtotal),
+          custoUnit: custoDoItem(item.pedido_item_custos),
         })),
       }))
     },

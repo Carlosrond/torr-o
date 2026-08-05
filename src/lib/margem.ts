@@ -1,10 +1,14 @@
 import { arredondar2 } from './numero'
 
-/** Item de pedido com o custo congelado dele. `custoUnit` null = produto sem custo cadastrado no dia do pedido. */
+/**
+ * Item de pedido com o custo congelado dele. `custoUnit` null/ausente = produto sem custo
+ * cadastrado no dia do pedido, ou usuário sem permissão de ver custo. Nos dois casos a
+ * margem fica indefinida — nunca zero.
+ */
 export interface ItemComCusto {
   qtdPacotes: number
   subtotal: number
-  custoUnit: number | null
+  custoUnit?: number | null
 }
 
 export interface Margem {
@@ -21,8 +25,9 @@ export interface Margem {
 export function margemDosItens(itens: ItemComCusto[]): Margem {
   const receita = arredondar2(itens.reduce((soma, i) => soma + i.subtotal, 0))
   const custo = arredondar2(itens.reduce((soma, i) => soma + (i.custoUnit ?? 0) * i.qtdPacotes, 0))
-  // `!== null` e não falsy: custo 0 é custo informado (brinde, amostra), não ausência de custo
-  const completa = itens.length > 0 && itens.every((i) => i.custoUnit !== null)
+  // `!= null` (cobre null e undefined) e não falsy: custo 0 é custo informado
+  // (brinde, amostra) e não pode ser confundido com ausência de custo
+  const completa = itens.length > 0 && itens.every((i) => i.custoUnit != null)
   const margem = completa ? arredondar2(receita - custo) : null
   return {
     receita,

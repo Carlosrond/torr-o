@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Cartao } from '@/componentes/Cartao'
 import { Carregando, Erro, Vazio } from '@/componentes/Estado'
+import { useAuth } from '@/hooks/useAuth'
 import { useClientes } from '@/hooks/useClientes'
 import { usePedidos, type PedidoCompleto } from '@/hooks/usePedidos'
 import { useProdutos } from '@/hooks/useProdutos'
 import { limitesDoMes } from '@/lib/comissao'
 import { addDias, hojeIso } from '@/lib/data'
-import { dataLonga, kgTexto, reais } from '@/lib/formato'
+import { dataLonga, kgTexto, numeroTexto, reais } from '@/lib/formato'
+import { margemDoPeriodo, margemDosItens } from '@/lib/margem'
 import { agruparPorDia, apenasValidos, noPeriodo, resumo } from '@/lib/metricas-venda'
 import { arredondar2 } from '@/lib/numero'
 import { KG_POR_SKU, ROTULO_CONDICAO, type CondicaoPagamento } from '@/lib/tipos'
@@ -85,9 +87,11 @@ function exportarCsv(
 }
 
 export default function Relatorio() {
+  const { papel } = useAuth()
   const { data: pedidos, isLoading, error } = usePedidos()
   const { data: clientes } = useClientes()
   const { data: produtos } = useProdutos()
+  const ehAdmin = papel === 'admin'
 
   const [inicio, setInicio] = useState(() => limitesDoMes(hojeIso()).inicio)
   const [fim, setFim] = useState(() => limitesDoMes(hojeIso()).fim)
@@ -105,6 +109,7 @@ export default function Relatorio() {
 
   const resumoPeriodo = useMemo(() => resumo(apenasValidos(filtrados)), [filtrados])
   const grupos = useMemo(() => agruparPorDia(filtrados), [filtrados])
+  const margem = useMemo(() => margemDoPeriodo(apenasValidos(filtrados)), [filtrados])
 
   if (isLoading) return <Carregando />
   if (error) return <Erro mensagem={error.message} />
@@ -194,6 +199,27 @@ export default function Relatorio() {
         <Cartao titulo="Ticket médio" valor={reais(resumoPeriodo.ticketMedio)} />
       </div>
 
+      {/* custo e margem só para o admin -- e o banco também não deixa o vendedor ler */}
+      {ehAdmin && (
+        <div className="grid grid-cols-2 gap-3">
+          <Cartao
+            titulo="Custo"
+            valor={margem.completa ? reais(margem.custo) : '—'}
+            detalhe={margem.completa ? undefined : 'Falta custo em algum produto'}
+          />
+          <Cartao
+            titulo="Margem"
+            valor={margem.margem === null ? '—' : reais(margem.margem)}
+            detalhe={
+              margem.margemPercentual === null
+                ? 'Cadastre o custo dos produtos em Mais → Produtos'
+                : `${numeroTexto(margem.margemPercentual)}% da venda`
+            }
+            alerta={margem.margem !== null && margem.margem < 0}
+          />
+        </div>
+      )}
+
       <button
         type="button"
         onClick={() => exportarCsv(filtrados, produtos ?? [], inicio, fim)}
@@ -218,6 +244,7 @@ export default function Relatorio() {
               <ul className="divide-y divide-stone-200 overflow-hidden rounded-b-xl bg-white shadow">
                 {grupo.pedidos.map((pedido) => {
                   const cancelado = pedido.status === 'cancelado'
+                  const margemPedido = ehAdmin && !cancelado ? margemDosItens(pedido.itens) : null
                   return (
                     <li
                       key={pedido.id}
@@ -226,6 +253,17 @@ export default function Relatorio() {
                       <span className={cancelado ? 'line-through' : ''}>
                         {pedido.clienteNome} · {ROTULO_CONDICAO[pedido.condicao]}
                         {cancelado && ' · Cancelado'}
+                        {margemPedido && (
+                          <span className="block text-xs text-stone-600">
+                            {margemPedido.margem === null
+                              ? 'margem — (sem custo cadastrado)'
+                              : `margem ${reais(margemPedido.margem)}${
+                                  margemPedido.margemPercentual === null
+                                    ? ''
+                                    : ` · ${numeroTexto(margemPedido.margemPercentual)}%`
+                                }`}
+                          </span>
+                        )}
                       </span>
                       <span className="flex items-center gap-2 tabular-nums">
                         <span className={cancelado ? 'line-through' : ''}>
