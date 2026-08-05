@@ -12,6 +12,7 @@ import {
   ehMultiploValido,
   kgMaisProximos,
   kgTotalProdutos,
+  MULTIPLO_KG,
   pacotesPorCaixa,
   precificarProdutos,
   totalPedidoProdutos,
@@ -50,43 +51,71 @@ function FotoMiniatura({ produto }: { produto: Produto }) {
   )
 }
 
+/**
+ * Quantidade em FARDOS e em PACOTES, sempre as duas juntas — o cliente pede
+ * "30 fardos" e o vendedor digita 30 sem fazer conta. A fonte de verdade é o
+ * total de pacotes; o campo de fardos é a mesma quantidade dividida pelo fardo
+ * (5 kg ÷ peso do pacote). Os botões −/+ andam de fardo em fardo.
+ */
 function ControleQuantidade({
   valor,
   passo,
   onChange,
 }: {
   valor: string
-  /** Pacotes por caixa de 5 kg: os botões andam de caixa em caixa, nunca de 1 em 1. */
+  /** Pacotes por fardo de 5 kg: os botões andam de fardo em fardo, nunca de 1 em 1. */
   passo: number
   onChange: (novo: string) => void
 }) {
   const numero = Number(valor) || 0
-  // se o valor digitado está fora da grade, − e + arredondam pra caixa vizinha
+  // se o valor digitado está fora da grade, − e + arredondam pro fardo vizinho
   const anterior = Math.max(0, (Math.ceil(numero / passo) - 1) * passo)
   const proximo = (Math.floor(numero / passo) + 1) * passo
+  // pacotes quebrados dão fardo fracionado (1,5) — aparece assim mesmo, o aviso
+  // de caixa embaixo já explica; some ao digitar de novo
+  const fardos = numero === 0 ? '' : String(Math.round((numero / passo) * 100) / 100).replace('.', ',')
   return (
     <div className="flex items-center gap-1">
       <button
         type="button"
         onClick={() => onChange(anterior === 0 ? '' : String(anterior))}
-        aria-label={`Diminuir uma caixa (${passo} pacotes)`}
+        aria-label={`Diminuir um fardo (${passo} pacotes)`}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-stone-300 text-lg font-semibold text-stone-700"
       >
         −
       </button>
-      <input
-        type="number"
-        min={0}
-        step={passo}
-        inputMode="numeric"
-        value={valor}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-14 rounded-lg border border-stone-300 text-center text-lg"
-      />
+      <label className="text-center text-[11px] leading-tight text-stone-600">
+        Fardos
+        <input
+          type="text"
+          inputMode="decimal"
+          value={fardos}
+          onChange={(e) => {
+            const digitado = e.target.value.trim().replace(',', '.')
+            if (digitado === '') return onChange('')
+            const n = Number(digitado)
+            if (!Number.isFinite(n) || n < 0) return
+            onChange(String(Math.round(n * passo)))
+          }}
+          className="block h-11 w-14 rounded-lg border border-stone-300 text-center text-lg text-stone-900"
+        />
+      </label>
+      <label className="text-center text-[11px] leading-tight text-stone-600">
+        Pacotes
+        <input
+          type="number"
+          min={0}
+          step={passo}
+          inputMode="numeric"
+          value={valor}
+          onChange={(e) => onChange(e.target.value)}
+          className="block h-11 w-14 rounded-lg border border-stone-300 text-center text-lg text-stone-900"
+        />
+      </label>
       <button
         type="button"
         onClick={() => onChange(String(proximo))}
-        aria-label={`Aumentar uma caixa (${passo} pacotes)`}
+        aria-label={`Aumentar um fardo (${passo} pacotes)`}
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-stone-300 text-lg font-semibold text-stone-700"
       >
         +
@@ -263,23 +292,35 @@ export default function NovoPedido() {
         <ul className="space-y-2">
           {produtosAtivos.map((produto) => {
             const item = calculo && !('erro' in calculo) ? calculo.itens.find((i) => i.produtoId === produto.id) : null
+            const caixa = pacotesPorCaixa(produto.pesoKg)
             return (
-              <li key={produto.id} className="flex items-center gap-3 rounded-xl bg-white p-3 shadow">
-                <FotoMiniatura produto={produto} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{produto.nome}</p>
-                  <p className="text-xs text-stone-600">{kgTexto(produto.pesoKg)} por pacote</p>
-                  {item && (
-                    <p className="mt-1 text-sm tabular-nums text-stone-700">
-                      {item.qtdPacotes} × {reais(item.precoUnit)} = <strong>{reais(item.subtotal)}</strong>
+              <li key={produto.id} className="rounded-xl bg-white p-3 shadow">
+                <div className="flex items-center gap-3">
+                  <FotoMiniatura produto={produto} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{produto.nome}</p>
+                    <p className="text-xs text-stone-600">
+                      {kgTexto(produto.pesoKg)} por pacote
+                      {caixa !== null && ` · fardo com ${caixa} (5 kg)`}
                     </p>
-                  )}
+                    {item && (
+                      <p className="mt-1 text-sm tabular-nums text-stone-700">
+                        {caixa !== null && item.qtdPacotes % caixa === 0 && (
+                          <>{item.qtdPacotes / caixa} fardo(s) · </>
+                        )}
+                        {item.qtdPacotes} × {reais(item.precoUnit)} ={' '}
+                        <strong>{reais(item.subtotal)}</strong>
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <ControleQuantidade
-                  valor={quantidades[produto.id] ?? ''}
-                  passo={pacotesPorCaixa(produto.pesoKg) ?? 1}
-                  onChange={(v) => setQuantidades({ ...quantidades, [produto.id]: v })}
-                />
+                <div className="mt-2 flex justify-end">
+                  <ControleQuantidade
+                    valor={quantidades[produto.id] ?? ''}
+                    passo={caixa ?? 1}
+                    onChange={(v) => setQuantidades({ ...quantidades, [produto.id]: v })}
+                  />
+                </div>
               </li>
             )
           })}
@@ -288,7 +329,14 @@ export default function NovoPedido() {
 
       <div className="rounded-xl bg-white p-4 shadow">
         <p className="text-sm text-stone-700">Volume do pedido</p>
-        <p className="text-2xl font-bold tabular-nums">{kgTexto(kg)}</p>
+        <p className="text-2xl font-bold tabular-nums">
+          {kgTexto(kg)}
+          {kg > 0 && ehMultiploValido(kg) && (
+            <span className="ml-2 text-base font-medium text-stone-600">
+              · {kg / MULTIPLO_KG} fardo{kg / MULTIPLO_KG === 1 ? '' : 's'}
+            </span>
+          )}
+        </p>
 
         {erroCaixa && (
           <p className="mt-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{erroCaixa}</p>
